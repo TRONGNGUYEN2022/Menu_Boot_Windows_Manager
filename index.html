@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grub4EFI Boot Studio - 1-Line UEFI Boot Manager</title>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #e2e8f0;
+      --blue-grad: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+      --red-grad: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+      --green-grad: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      --amber-grad: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+    }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: radial-gradient(circle at top left, #dbeafe 0%, #f1f5f9 45%, #fce7f3 100%);
+      color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .app-card {
+      width: 100%; max-width: 680px;
+      background: var(--surface);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15);
+      border: 2px solid #ffffff;
+    }
+    .header { text-align: center; margin-bottom: 26px; }
+    .badge {
+      display: inline-block;
+      background: #eff6ff; color: #2563eb;
+      font-weight: 800; font-size: 12px; letter-spacing: 0.5px;
+      padding: 6px 14px; border-radius: 999px;
+      border: 1.5px solid #bfdbfe;
+      margin-bottom: 10px; text-transform: uppercase;
+    }
+    .header h1 {
+      margin: 0; font-size: 28px; font-weight: 900;
+      background: linear-gradient(90deg, #1e3a8a, #2563eb, #db2777);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .header p { margin: 8px 0 0; color: var(--muted); font-size: 15px; font-weight: 500; }
+
+    .menu-list { display: flex; flex-direction: column; gap: 16px; }
+    .menu-btn {
+      display: flex; align-items: center; gap: 18px;
+      width: 100%; text-align: left;
+      padding: 20px 24px;
+      border: none; border-radius: 18px;
+      color: #ffffff; cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .menu-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 30px -8px rgba(15, 23, 42, 0.25);
+    }
+    .menu-btn.install { background: var(--blue-grad); }
+    .menu-btn.remove  { background: var(--red-grad); }
+    .menu-btn.config  { background: var(--green-grad); }
+
+    .menu-icon {
+      width: 54px; height: 54px; flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.22);
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 900;
+    }
+    .menu-info h2 { margin: 0; font-size: 18px; font-weight: 800; }
+    .menu-info p { margin: 4px 0 0; font-size: 13.5px; opacity: 0.92; font-weight: 500; }
+    .menu-arrow { margin-left: auto; font-size: 22px; font-weight: 900; opacity: 0.9; }
+
+    .status-bar {
+      margin-top: 22px; padding: 14px 18px; border-radius: 14px;
+      background: #ecfdf5; border: 2px solid #6ee7b7; color: #065f46;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 13.5px; font-weight: 700;
+    }
+    .pill-count {
+      background: #10b981; color: #fff;
+      padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 800;
+    }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.58);
+      backdrop-filter: blur(5px);
+      display: none; align-items: center; justify-content: center;
+      padding: 16px; z-index: 50;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: 100%; max-width: 580px;
+      background: #ffffff; border-radius: 22px; padding: 26px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+      animation: popIn 0.2s ease;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #f1f5f9;
+    }
+    .modal-header h3 { margin: 0; font-size: 19px; font-weight: 900; color: #0f172a; }
+    .btn-close {
+      background: #f1f5f9; border: none; width: 34px; height: 34px;
+      border-radius: 10px; font-size: 18px; font-weight: 800; cursor: pointer; color: #475569;
+    }
+
+    /* MAS-style Command Box */
+    .cmd-box {
+      background: #0f172a; color: #38bdf8;
+      padding: 16px; border-radius: 14px;
+      font-family: 'Consolas', monospace; font-size: 13.5px; font-weight: 700;
+      word-break: break-all; line-height: 1.5;
+      border: 2px solid #334155; margin-bottom: 16px;
+    }
+    .step-guide {
+      background: #eff6ff; border: 1.5px solid #bfdbfe;
+      border-radius: 14px; padding: 14px 16px;
+      font-size: 13.5px; color: #1e3a8a; line-height: 1.6; margin-bottom: 16px;
+    }
+    .step-guide kbd {
+      background: #ffffff; border: 1px solid #93c5fd;
+      padding: 2px 7px; border-radius: 6px; font-weight: 800; color: #1d4ed8;
+    }
+    .btn-copy-big {
+      width: 100%; padding: 15px; border: none; border-radius: 14px;
+      background: var(--blue-grad); color: #fff;
+      font-size: 15px; font-weight: 800; cursor: pointer;
+    }
+    .repo-bar {
+      margin-top: 12px; display: flex; gap: 8px; align-items: center;
+      font-size: 12px; color: #64748b;
+    }
+    .repo-bar input {
+      flex: 1; padding: 6px 10px; border-radius: 8px;
+      border: 1px solid #cbd5e1; font-size: 12px; color: #0f172a;
+    }
+
+    /* Sub-options a/ and b/ */
+    .sub-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .sub-btn {
+      padding: 16px; border: none; border-radius: 14px;
+      color: #fff; font-weight: 800; font-size: 15px;
+      cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 4px;
+    }
+    .sub-btn.opt-a { background: var(--amber-grad); }
+    .sub-btn.opt-b { background: var(--blue-grad); }
+    .sub-btn span { font-size: 12px; font-weight: 500; opacity: 0.92; }
+
+    .file-confirm {
+      display: none; background: #fffbeb; border: 2px solid #fcd34d;
+      border-radius: 14px; padding: 14px; margin-bottom: 14px;
+    }
+    .file-confirm.show { display: block; }
+    .file-confirm label { display: block; font-size: 12.5px; font-weight: 800; color: #92400e; margin-bottom: 6px; }
+    .file-row { display: flex; gap: 8px; }
+    .file-row input {
+      flex: 1; padding: 9px 12px; border-radius: 10px;
+      border: 1.5px solid #f59e0b; font-size: 13.5px; font-weight: 600;
+    }
+    .btn-add-item {
+      background: #d97706; color: #fff; border: none;
+      padding: 0 16px; border-radius: 10px; font-weight: 800; cursor: pointer;
+    }
+    .item-box {
+      background: #f8fafc; border: 1.5px solid #e2e8f0;
+      border-radius: 14px; padding: 12px; max-height: 200px; overflow-y: auto; margin-bottom: 16px;
+    }
+    .boot-entry {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #ffffff; border: 1px solid #e2e8f0;
+      padding: 10px 12px; border-radius: 10px; margin-bottom: 8px;
+    }
+    .boot-entry:last-child { margin-bottom: 0; }
+    .entry-tag {
+      font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px;
+      text-transform: uppercase; margin-right: 8px;
+    }
+    .tag-iso { background: #fef3c7; color: #b45309; }
+    .tag-wim { background: #fce7f3; color: #be185d; }
+    .tag-vhd { background: #e0e7ff; color: #4338ca; }
+    .tag-win { background: #dbeafe; color: #1d4ed8; }
+    .entry-title { font-size: 13.5px; font-weight: 700; color: #0f172a; }
+    .entry-path  { font-size: 11.5px; color: #64748b; margin-top: 2px; }
+    .btn-del {
+      background: #fee2e2; color: #dc2626; border: none;
+      width: 28px; height: 28px; border-radius: 8px; font-weight: 800; cursor: pointer;
+    }
+    .btn-save-menu {
+      width: 100%; padding: 14px; border: none; border-radius: 12px;
+      background: var(--green-grad); color: #fff;
+      font-size: 15px; font-weight: 800; cursor: pointer;
+    }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: #fff; padding: 12px 22px; border-radius: 14px;
+      font-size: 14px; font-weight: 700; box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+      display: none; z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-card">
+    <div class="header">
+      <span class="badge">Chạy trực tiếp từ GitHub · Không tải file rác</span>
+      <h1>Grub4EFI Boot Studio</h1>
+      <p>Tự động tải Grub4EFI mới nhất & cài vào Menu Boot của Windows</p>
+    </div>
+
+    <div class="menu-list">
+      <!-- MỤC 1 -->
+      <button class="menu-btn install" id="btnMenuInstall">
+        <div class="menu-icon">1</div>
+        <div class="menu-info">
+          <h2>Cài đặt Grub4EFI vào Menu Boot của Windows</h2>
+          <p>Copy lệnh 1-dòng chạy trực tiếp từ GitHub (Tự tải Grub4EFI & sao lưu BCD)</p>
+        </div>
+        <div class="menu-arrow">⚡</div>
+      </button>
+
+      <!-- MỤC 2 -->
+      <button class="menu-btn remove" id="btnMenuRemove">
+        <div class="menu-icon">2</div>
+        <div class="menu-info">
+          <h2>Gỡ bỏ Grub4EFI khỏi Menu Boot</h2>
+          <p>Copy lệnh 1-dòng xóa sạch mục khởi động khỏi Windows & dọn thư mục EFI</p>
+        </div>
+        <div class="menu-arrow">🗑</div>
+      </button>
+
+      <!-- MỤC 3 -->
+      <button class="menu-btn config" id="btnMenuConfig">
+        <div class="menu-icon">3</div>
+        <div class="menu-info">
+          <h2>Menu boot của Grub4EFI</h2>
+          <p>Thêm nhanh bộ cài ISO, WIM, VHD hoặc Windows OS vào menu.lst</p>
+        </div>
+        <div class="menu-arrow">⚙</div>
+      </button>
+    </div>
+
+    <div class="status-bar">
+      <span>📋 Danh sách khởi động trong <strong>menu.lst</strong> sẵn sàng nạp:</span>
+      <span class="pill-count" id="menuCount">1 mục</span>
+    </div>
+  </div>
+
+  <!-- CỬA SỔ CHẠY LỆNH 1 DÒNG CHUẨN MAS (MỤC 1 & 2) -->
+  <div class="modal-backdrop" id="runModalBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="runModalTitle">Chạy trực tiếp qua PowerShell</h3>
+        <button class="btn-close" id="btnCloseRunModal">✕</button>
+      </div>
+
+      <div class="step-guide">
+        <strong>Cách chạy (giống hệt tool MAS):</strong><br/>
+        1. Lệnh bên dưới đã được <strong>tự động Copy</strong> vào bộ nhớ tạm.<br/>
+        2. Bấm chuột phải vào nút <strong>Start Windows</strong> → chọn <strong>Terminal</strong> hoặc <strong>PowerShell</strong>.<br/>
+        3. Nhấn <kbd>Ctrl</kbd> + <kbd>V</kbd> rồi nhấn <kbd>Enter</kbd> để chạy ngay!
+      </div>
+
+      <div class="cmd-box" id="oneLinerDisplay"></div>
+
+      <button class="btn-copy-big" id="btnCopyAgain">📋 Copy lại câu lệnh</button>
+
+      <div class="repo-bar">
+        <span>Nguồn GitHub:</span>
+        <input type="text" id="repoSlugInput" value="YOUR_GITHUB_USER/grub4efi-boot" />
+      </div>
+    </div>
+  </div>
+
+  <!-- CỬA SỔ MỤC 3: MENU BOOT CỦA GRUB4EFI -->
+  <div class="modal-backdrop" id="configModalBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>3/ Menu boot của Grub4EFI</h3>
+        <button class="btn-close" id="btnCloseConfigModal">✕</button>
+      </div>
+
+      <div class="sub-actions">
+        <button class="sub-btn opt-a" id="btnOptFile">
+          a/ Boot từ ISO, WIM, VHD
+          <span>Nhấn để duyệt file trên máy</span>
+        </button>
+        <button class="sub-btn opt-b" id="btnOptWin">
+          b/ Windows OS
+          <span>Thêm mục quay lại Windows</span>
+        </button>
+      </div>
+
+      <input type="file" id="hiddenFilePicker" accept=".iso,.wim,.vhd,.vhdx" style="display:none" />
+
+      <div class="file-confirm" id="fileConfirmBox">
+        <label>Đường dẫn file trên ổ đĩa (Grub4EFI tự quét mọi phân vùng):</label>
+        <div class="file-row">
+          <input type="text" id="detectedRelPath" placeholder="/ISO/TenFile.iso" />
+          <button class="btn-add-item" id="btnConfirmAddFile">+ Thêm</button>
+        </div>
+      </div>
+
+      <div class="item-box" id="entryListContainer"></div>
+
+      <button class="btn-save-menu" id="btnApplyMenuDirect">⚡ Lưu & Lấy lệnh cập nhật ngay menu.lst</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toastBox"></div>
+
+  <script>
+    let bootEntries = [
+      { type: 'win', title: 'Khoi dong Windows OS', path: '/EFI/Microsoft/Boot/bootmgfw.efi' }
+    ];
+    let pendingFileType = 'iso';
+    let activeAction = 'install';
+
+    const runModalBackdrop = document.getElementById('runModalBackdrop');
+    const configModalBackdrop = document.getElementById('configModalBackdrop');
+    const oneLinerDisplay = document.getElementById('oneLinerDisplay');
+    const repoSlugInput = document.getElementById('repoSlugInput');
+    const hiddenFilePicker = document.getElementById('hiddenFilePicker');
+    const fileConfirmBox = document.getElementById('fileConfirmBox');
+    const detectedRelPath = document.getElementById('detectedRelPath');
+    const entryListContainer = document.getElementById('entryListContainer');
+    const menuCount = document.getElementById('menuCount');
+    const toastBox = document.getElementById('toastBox');
+
+    // Tự động nhận diện user/repo nếu đang chạy trên GitHub Pages (*.github.io)
+    (function autoDetectGitHubRepo() {
+      const host = window.location.hostname;
+      if (host.endsWith('.github.io')) {
+        const user = host.split('.')[0];
+        const repo = window.location.pathname.split('/').filter(Boolean)[0] || `${user}.github.io`;
+        repoSlugInput.value = `${user}/${repo}`;
+      }
+    })();
+
+    function showToast(msg) {
+      toastBox.textContent = msg;
+      toastBox.style.display = 'block';
+      clearTimeout(window._t);
+      window._t = setTimeout(() => { toastBox.style.display = 'none'; }, 3500);
+    }
+
+    function toAscii(str) {
+      return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+
+    function buildMenuLstB64() {
+      let lines = ['timeout 10', 'default 0', ''];
+      bootEntries.forEach((item, index) => {
+        const cleanTitle = toAscii(item.title);
+        lines.push(`title ${index + 1}. ${cleanTitle}`);
+        if (item.type === 'iso') {
+          lines.push(`find --set-root ${item.path}`);
+          lines.push(`map --mem ${item.path} (0xff)`);
+          lines.push(`chainloader (0xff)`);
+        } else if (item.type === 'vhd') {
+          lines.push(`find --set-root ${item.path}`);
+          lines.push(`map --mem ${item.path} (hd)`);
+          lines.push(`chainloader (hd-1)`);
+        } else if (item.type === 'wim') {
+          lines.push(`find --set-root ${item.path}`);
+          lines.push(`ntboot ${item.path}`);
+        } else {
+          lines.push(`find --set-root /EFI/Microsoft/Boot/bootmgfw.efi`);
+          lines.push(`chainloader /EFI/Microsoft/Boot/bootmgfw.efi`);
+        }
+        lines.push('');
+      });
+      return btoa(unescape(encodeURIComponent(lines.join('\r\n'))));
+    }
+
+    function buildOneLiner(mode) {
+      const slug = repoSlugInput.value.trim() || 'YOUR_GITHUB_USER/grub4efi-boot';
+      const baseUrl = `https://raw.githubusercontent.com/${slug}/main`;
+      if (mode === 'remove') {
+        return `irm ${baseUrl}/remove.ps1 | iex`;
+      }
+      const b64 = buildMenuLstB64();
+      if (mode === 'menu_only') {
+        return `$env:G4E_ONLY_MENU="1"; $env:G4E_MENU="${b64}"; irm ${baseUrl}/install.ps1 | iex`;
+      }
+      // Mặc định cài đặt đầy đủ: nếu chỉ có 1 mục Windows mặc định thì câu lệnh siêu ngắn gọn!
+      if (bootEntries.length === 1 && bootEntries[0].type === 'win') {
+        return `irm ${baseUrl}/install.ps1 | iex`;
+      }
+      return `$env:G4E_MENU="${b64}"; irm ${baseUrl}/install.ps1 | iex`;
+    }
+
+    async function openRunModal(mode, titleText) {
+      activeAction = mode;
+      document.getElementById('runModalTitle').textContent = titleText;
+      const cmd = buildOneLiner(mode);
+      oneLinerDisplay.textContent = cmd;
+      runModalBackdrop.classList.add('open');
+      try {
+        await navigator.clipboard.writeText(cmd);
+        showToast('✓ Đã tự động Copy lệnh vào Clipboard!');
+      } catch (_) {}
+    }
+
+    // MỤC 1
+    document.getElementById('btnMenuInstall').addEventListener('click', () => {
+      openRunModal('install', '1/ Cài đặt Grub4EFI vào Menu Boot Windows');
+    });
+
+    // MỤC 2
+    document.getElementById('btnMenuRemove').addEventListener('click', () => {
+      openRunModal('remove', '2/ Gỡ bỏ Grub4EFI khỏi Menu Boot Windows');
+    });
+
+    repoSlugInput.addEventListener('input', () => {
+      oneLinerDisplay.textContent = buildOneLiner(activeAction);
+    });
+
+    document.getElementById('btnCopyAgain').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(oneLinerDisplay.textContent);
+      showToast('✓ Đã Copy lại câu lệnh!');
+    });
+
+    document.getElementById('btnCloseRunModal').addEventListener('click', () => {
+      runModalBackdrop.classList.remove('open');
+    });
+
+    // MỤC 3
+    function renderEntries() {
+      menuCount.textContent = `${bootEntries.length} mục`;
+      entryListContainer.innerHTML = bootEntries.map((item, idx) => `
+        <div class="boot-entry">
+          <div>
+            <div>
+              <span class="entry-tag tag-${item.type}">${item.type}</span>
+              <span class="entry-title">${item.title}</span>
+            </div>
+            <div class="entry-path">${item.path}</div>
+          </div>
+          <button class="btn-del" onclick="removeEntry(${idx})">✕</button>
+        </div>
+      `).join('');
+    }
+
+    window.removeEntry = function(idx) {
+      bootEntries.splice(idx, 1);
+      renderEntries();
+    };
+
+    document.getElementById('btnMenuConfig').addEventListener('click', () => {
+      renderEntries();
+      configModalBackdrop.classList.add('open');
+    });
+
+    document.getElementById('btnCloseConfigModal').addEventListener('click', () => {
+      configModalBackdrop.classList.remove('open');
+      fileConfirmBox.classList.remove('show');
+    });
+
+    // a/ Boot từ ISO, WIM, VHD
+    document.getElementById('btnOptFile').addEventListener('click', () => {
+      hiddenFilePicker.value = '';
+      hiddenFilePicker.click();
+    });
+
+    hiddenFilePicker.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+      pendingFileType = (ext === 'wim') ? 'wim' : ((ext === 'vhd' || ext === 'vhdx') ? 'vhd' : 'iso');
+      const folder = pendingFileType === 'wim' ? '/sources/' : (pendingFileType === 'vhd' ? '/VHD/' : '/ISO/');
+      detectedRelPath.value = `${folder}${file.name}`;
+      fileConfirmBox.classList.add('show');
+      detectedRelPath.focus();
+    });
+
+    document.getElementById('btnConfirmAddFile').addEventListener('click', () => {
+      let relPath = detectedRelPath.value.trim().replace(/\\/g, '/');
+      if (!relPath) return;
+      if (!relPath.startsWith('/')) relPath = '/' + relPath;
+      const fileName = relPath.split('/').pop();
+      bootEntries.unshift({
+        type: pendingFileType,
+        title: `Boot ${pendingFileType.toUpperCase()}: ${fileName}`,
+        path: relPath
+      });
+      fileConfirmBox.classList.remove('show');
+      renderEntries();
+      showToast(`✓ Đã thêm "${fileName}" vào menu.lst`);
+    });
+
+    // b/ Windows OS
+    document.getElementById('btnOptWin').addEventListener('click', () => {
+      if (bootEntries.some(x => x.type === 'win')) {
+        showToast('ℹ Mục "Windows OS" đã có sẵn trong menu!');
+        return;
+      }
+      bootEntries.push({
+        type: 'win',
+        title: 'Khoi dong Windows OS',
+        path: '/EFI/Microsoft/Boot/bootmgfw.efi'
+      });
+      renderEntries();
+      showToast('✓ Đã thêm "Windows OS" vào menu.lst');
+    });
+
+    document.getElementById('btnApplyMenuDirect').addEventListener('click', () => {
+      configModalBackdrop.classList.remove('open');
+      openRunModal('menu_only', 'Cập nhật nhanh menu.lst cho Grub4EFI');
+    });
+
+    renderEntries();
+  </script>
+</body>
+</html>
