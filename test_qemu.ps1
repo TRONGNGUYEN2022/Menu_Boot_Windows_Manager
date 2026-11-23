@@ -123,23 +123,87 @@ function Dismount-ActiveEfi($efiInfo) {
     }
 }
 
-function Find-QemuBinary {
-    $cmd = Get-Command "qemu-system-x86_64.exe" -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
+function Find-QemuBinary([string]$miniDir) {
     $candidates = @(
+        (Join-Path $miniDir "qemu-system-x86_64.exe"),
+        "C:\Grub4EFI_QEMU\qemu-uefi-mini\qemu-system-x86_64.exe",
         "C:\Program Files\qemu\qemu-system-x86_64.exe",
         "C:\Program Files (x86)\qemu\qemu-system-x86_64.exe",
         "C:\Tools\qemu\qemu-system-x86_64.exe",
         "$env:LOCALAPPDATA\Programs\qemu\qemu-system-x86_64.exe"
     )
-    return ($candidates | Where-Object { Test-Path $_ } | Select-Object -First 1)
+    $found = ($candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1)
+    if ($found) { return $found }
+
+    $cmd = Get-Command "qemu-system-x86_64.exe" -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    return $null
 }
 
 function Find-OvmfFirmware([string]$qemuExe) {
     $qemuDir = Split-Path $qemuExe -Parent
+    $directCandidates = @(
+        (Join-Path $qemuDir "share\edk2-x86_64-code.fd"),
+        (Join-Path $qemuDir "share\OVMF_CODE.fd"),
+        (Join-Path $qemuDir "share\OVMF.fd")
+    )
+    $direct = ($directCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1)
+    if ($direct) { return $direct }
+
     $fw = Get-ChildItem -Path $qemuDir -Recurse -Include "edk2-x86_64-code.fd", "OVMF_CODE.fd", "OVMF.fd" -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($fw) { return $fw.FullName }
     return $null
+}
+
+function Get-SevenZipTool([string]$workDir) {
+    $existing = @(
+        "$env:ProgramFiles\7-Zip\7z.exe",
+        "${env:ProgramFiles(x86)}\7-Zip\7z.exe",
+        "C:\Grub4EFI_QEMU\cache\7zr.exe",
+        "C:\Grub4EFI_QEMU\7zr.exe"
+    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+    if ($existing) { return $existing }
+
+    $zr = Join-Path $workDir "7zr.exe"
+    if (-not (Test-Path $zr)) {
+        & curl.exe -fsSL "https://www.7-zip.org/a/7zr.exe" -o "$zr"
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $zr)) {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -Uri "https://www.7-zip.org/a/7zr.exe" -OutFile $zr -UseBasicParsing
+        }
+    }
+    return $zr
+}
+
+function Install-MiniQemuPortable([string]$baseDir, [string]$miniDir) {
+    $miniUrl = "https://github.com/trongnguyen2022/Menu_Boot_Windows_Manager/releases/download/qemu-mini/qemu-uefi-mini.7z"
+    $archivePath = Join-Path $baseDir "qemu-uefi-mini.7z"
+
+    Write-Host "  [DANG TAI] Dang tai goi QEMU UEFI Mini Portable qua curl.exe..." -ForegroundColor Yellow
+    & curl.exe -fL --progress-bar "$miniUrl" -o "$archivePath"
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $archivePath) -or ((Get-Item $archivePath).Length -lt 1MB)) {
+        if (Test-Path $archivePath) { Remove-Item $archivePath -Force -ErrorAction SilentlyContinue }
+        throw "Khong tai duoc goi qemu-uefi-mini.7z tu GitHub Releases (tag: qemu-mini)."
+    }
+
+    try {
+        [System.IO.Directory]::CreateDirectory($miniDir) | Out-Null
+        $sevenZip = Get-SevenZipTool $baseDir
+        Write-Host "  [DANG GIAI NEN] Dang giai nen QEMU UEFI Mini..." -ForegroundColor Cyan
+        $zProc = Start-Process -FilePath $sevenZip -ArgumentList "x `"$archivePath`" `"-o$miniDir`" -y" -Wait -NoNewWindow -PassThru
+        if ($zProc.ExitCode -ne 0) {
+            throw "Giai nen qemu-uefi-mini.7z that bai (Ma loi: $($zProc.ExitCode))."
+        }
+
+        # Nếu gói nén chứa 1 thư mục con bọc ngoài thì đưa file ra thẳng $miniDir
+        $nestedExe = Get-ChildItem -Path $miniDir -Recurse -Filter "qemu-system-x86_64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($nestedExe -and ((Split-Path $nestedExe.FullName -Parent) -ne $miniDir)) {
+            $subRoot = Split-Path $nestedExe.FullName -Parent
+            Get-ChildItem -Path $subRoot -Force | Move-Item -Destination $miniDir -Force
+        }
+    } finally {
+        Remove-Item $archivePath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 Write-Host "==============================================================" -ForegroundColor Cyan
@@ -161,7 +225,6 @@ try {
         if ($m.Success) { $grubGuid = $m.Value }
         Write-Host "  [PASS] Da tim thay muc boot: Grub4EFI ($grubGuid)" -ForegroundColor Green
 
-        # Kiểm tra thứ tự ưu tiên trong {fwbootmgr}
         $fwMgr = $blocks | Where-Object { $_ -match "\{fwbootmgr\}" } | Select-Object -First 1
         if ($fwMgr -and $grubGuid) {
             if ($fwMgr -match "displayorder\s+$([regex]::Escape($grubGuid))") {
@@ -190,6 +253,7 @@ try {
     # === PHẦN 3: KIỂM TRA FILE THẬT TRÊN PHÂN VÙNG EFI & QUÉT FILE ISO/VHD TRONG MENU.LST ===
     Write-Host "`n[3/4] Kiem tra file that tren phan vung EFI & duong dan trong menu.lst..." -ForegroundColor Yellow
     $BaseDir = "C:\Grub4EFI_QEMU"
+    $MiniDir = Join-Path $BaseDir "qemu-uefi-mini"
     $EspDir  = Join-Path $BaseDir "esp"
     [System.IO.Directory]::CreateDirectory($BaseDir) | Out-Null
     if (Test-Path $EspDir) { Remove-Item $EspDir -Recurse -Force }
@@ -220,7 +284,6 @@ try {
             Write-Host $menuContent -ForegroundColor Gray
             Write-Host "  -------------------------------------------" -ForegroundColor DarkCyan
 
-            # Kiểm tra từng đường dẫn tệp khai báo sau lệnh find --set-root
             $allDrives = @([System.IO.DriveInfo]::GetDrives() | Where-Object { $_.IsReady } | ForEach-Object { $_.Name.TrimEnd('\') })
             $matches = [regex]::Matches($menuContent, "find\s+--set-root\s+([^\r\n]+)")
             foreach ($mt in $matches) {
@@ -249,37 +312,39 @@ try {
         return
     }
 
-    # === PHẦN 4: CHẠY THỬ CHÍNH BỘ GRUB4EFI + MENU.LST THẬT TRONG QEMU UEFI ===
-    Write-Host "`n[4/4] Chay thu chinh grub4efi.efi va menu.lst vua cai trong may ao QEMU..." -ForegroundColor Yellow
-    $qemuExe = Find-QemuBinary
+    # === PHẦN 4: CHẠY THỬ CHÍNH BỘ GRUB4EFI + MENU.LST THẬT TRONG QEMU UEFI MINI ===
+    Write-Host "`n[4/4] Chay thu chinh grub4efi.efi va menu.lst vua cai trong may ao QEMU UEFI..." -ForegroundColor Yellow
+    $qemuExe = Find-QemuBinary $MiniDir
+
     if (-not $qemuExe) {
-        Write-Host "  [INFO] May chua cai QEMU (qemu-system-x86_64.exe)." -ForegroundColor Yellow
-        $ans = Read-Host "  Ban co muon tu dong tai & cai QEMU chinh chu de mo man hinh boot ao khong? (Y/N)"
-        if ($ans -notmatch "^[Yy]") {
-            Write-Host "`n[HOAN TAT KIEM TRA TINH] Ban co the thu boot 1 lan an toan tren may that bang lenh:" -ForegroundColor Cyan
-            if ($grubGuid) { Write-Host "  bcdedit /set {fwbootmgr} bootsequence $grubGuid" -ForegroundColor White }
-            return
-        }
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $winget = Get-Command "winget.exe" -ErrorAction SilentlyContinue
-        if ($winget) {
-            Start-Process -FilePath "winget.exe" -ArgumentList "install --id SoftwareFreedomConservancy.QEMU -e --accept-source-agreements --accept-package-agreements" -Wait -NoNewWindow
-        } else {
+        try {
+            Install-MiniQemuPortable -baseDir $BaseDir -miniDir $MiniDir
+            $qemuExe = Find-QemuBinary $MiniDir
+        } catch {
+            Write-Host "  [INFO] Chua tai duoc goi Mini ($($_.Exception.Message))" -ForegroundColor Yellow
+            $ans = Read-Host "  Ban co muon tai bo cai QEMU goc tu qemu.weilnetz.de de chay thu khong? (Y/N)"
+            if ($ans -notmatch "^[Yy]") {
+                Write-Host "`n[HOAN TAT KIEM TRA TINH] Ban co the thu boot 1 lan an toan tren may that bang lenh:" -ForegroundColor Cyan
+                if ($grubGuid) { Write-Host "  bcdedit /set {fwbootmgr} bootsequence $grubGuid" -ForegroundColor White }
+                return
+            }
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             $page = Invoke-WebRequest -Uri "https://qemu.weilnetz.de/w64/" -UseBasicParsing
             $setupName = ([regex]::Matches($page.Content, 'qemu-w64-setup-[0-9]{8}\.exe') | Select-Object -Last 1).Value
             if (-not $setupName) { throw "Khong lay duoc link tai QEMU tu qemu.weilnetz.de!" }
             $setupPath = Join-Path $BaseDir $setupName
             Write-Host "  [DANG TAI] $setupName..." -ForegroundColor Yellow
-            Invoke-WebRequest -Uri "https://qemu.weilnetz.de/w64/$setupName" -OutFile $setupPath -UseBasicParsing
+            & curl.exe -fL --progress-bar "https://qemu.weilnetz.de/w64/$setupName" -o "$setupPath"
             Start-Process -FilePath $setupPath -ArgumentList "/S" -Wait
+            $qemuExe = Find-QemuBinary $MiniDir
+            if (-not $qemuExe) { throw "Khong tim thay qemu-system-x86_64.exe sau khi cai dat!" }
         }
-        $qemuExe = Find-QemuBinary
-        if (-not $qemuExe) { throw "Khong tim thay qemu-system-x86_64.exe sau khi cai dat!" }
     }
 
     $ovmfPath = Find-OvmfFirmware $qemuExe
     if (-not $ovmfPath) { throw "Khong tim thay firmware UEFI (edk2-x86_64-code.fd / OVMF.fd) trong thu muc QEMU!" }
 
+    Write-Host "  [OK] Su dung QEMU: $qemuExe" -ForegroundColor Green
     Write-Host "  [DANG MO QEMU] Hien thi chinh xac giao dien Grub4EFI & menu.lst that cua may ban..." -ForegroundColor Magenta
     Write-Host "  (Luu y: Trong may ao QEMU chi co phan vung EFI ao de kiem tra giao dien/cu phap menu, khong gan o cung Windows that de tranh ghi trung)" -ForegroundColor Gray
 
