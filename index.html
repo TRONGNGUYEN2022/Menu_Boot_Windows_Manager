@@ -106,7 +106,7 @@
       animation: popIn 0.2s ease;
       max-height: 92vh; overflow-y: auto;
     }
-    .modal.modal-wide { max-width: 960px; }
+    .modal.modal-wide { max-width: 980px; }
     @keyframes popIn {
       from { opacity: 0; transform: scale(0.95); }
       to   { opacity: 1; transform: scale(1); }
@@ -192,9 +192,9 @@
       border: 2px solid #1e293b; border-radius: 12px;
       padding: 13px;
       font-family: 'Consolas', 'Courier New', monospace;
-      font-size: 12.5px; line-height: 1.55;
+      font-size: 12px; line-height: 1.5;
       white-space: pre; overflow: auto;
-      min-height: 310px; max-height: 390px;
+      min-height: 330px; max-height: 430px;
       margin: 0;
     }
 
@@ -228,6 +228,32 @@
     .mem-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #78350f; font-weight: 600; }
     .wim-note { display: none; margin-top: 6px; font-size: 11.5px; color: #b45309; }
 
+    /* Theme Picker */
+    .theme-box {
+      background: #eef2ff; border: 1.5px solid #c7d2fe;
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;
+    }
+    .theme-box-title {
+      font-size: 12.5px; font-weight: 800; color: #312e81; margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .theme-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    @media (max-width: 520px) {
+      .theme-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .theme-chip {
+      border: 2px solid transparent; border-radius: 10px;
+      padding: 7px 6px; cursor: pointer; text-align: center;
+      font-size: 11.5px; font-weight: 800; color: #ffffff;
+      transition: transform 0.14s, border-color 0.14s, box-shadow 0.14s;
+    }
+    .theme-chip:hover { transform: translateY(-1px); }
+    .theme-chip.active { border-color: #facc15; box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.35); }
+    .theme-chip.t-1 { background: linear-gradient(135deg, #020617, #0284c7); }
+    .theme-chip.t-2 { background: linear-gradient(135deg, #021412, #059669); }
+    .theme-chip.t-3 { background: linear-gradient(135deg, #0f0720, #7c3aed); }
+    .theme-chip.t-0 { background: linear-gradient(135deg, #1e293b, #475569); }
+
     .sync-box {
       background: #ecfdf5; border: 1.5px solid #a7f3d0;
       border-radius: 12px; padding: 10px 12px; margin-bottom: 12px;
@@ -244,7 +270,7 @@
 
     .item-box {
       background: #ffffff; border: 1.5px solid #e2e8f0;
-      border-radius: 14px; padding: 10px; max-height: 195px; overflow-y: auto; margin-bottom: 12px;
+      border-radius: 14px; padding: 10px; max-height: 175px; overflow-y: auto; margin-bottom: 10px;
     }
     .boot-entry {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -289,20 +315,23 @@
       padding: 9px 11px; border-radius: 10px; font-size: 12.5px; font-weight: 700;
     }
     .uefi-screen {
-      background: #020617; color: #e2e8f0;
+      background: radial-gradient(circle at top left, rgba(14,165,233,0.28), #020617 55%, rgba(99,102,241,0.25));
+      color: #e2e8f0;
       border: 4px solid #334155; border-radius: 12px;
       padding: 16px; font-family: 'Consolas', 'Courier New', monospace;
-      min-height: 265px; display: flex; flex-direction: column;
+      min-height: 275px; display: flex; flex-direction: column;
       box-shadow: inset 0 0 24px rgba(0,0,0,0.9);
       margin-bottom: 12px;
+      transition: background 0.25s ease;
     }
-    .uefi-top { text-align: center; color: #38bdf8; font-weight: 700; font-size: 13px; margin-bottom: 10px; letter-spacing: 0.5px; }
-    .uefi-frame { border: 2px solid #64748b; padding: 10px; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .uefi-top { text-align: center; color: #38bdf8; font-weight: 800; font-size: 13.5px; margin-bottom: 4px; letter-spacing: 1px; }
+    .uefi-clock { text-align: center; color: #94a3b8; font-size: 11.5px; margin-bottom: 10px; }
+    .uefi-frame { border: 2px solid #38bdf8; padding: 10px; flex: 1; display: flex; flex-direction: column; gap: 4px; background: rgba(2,6,23,0.45); }
     .uefi-item {
       padding: 6px 10px; font-size: 13.5px; cursor: pointer; border-radius: 3px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .uefi-item.selected { background: #e2e8f0; color: #020617; font-weight: 800; }
+    .uefi-item.selected { background: #0284c7; color: #ffffff; font-weight: 800; }
     .uefi-console { font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; color: #4ade80; }
     .uefi-console .warn { color: #fbbf24; }
     .uefi-footer { margin-top: 10px; font-size: 11.5px; color: #94a3b8; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
@@ -325,9 +354,9 @@
 <body>
   <div class="app-card">
     <div class="header">
-      <span class="badge">Chạy trực tiếp từ GitHub · Kiểm tra thật & QEMU</span>
+      <span class="badge">Chạy trực tiếp từ GitHub · Giao diện Đẹp & QEMU</span>
       <h1>Grub4EFI Boot Studio</h1>
-      <p>Tự động tải Grub4EFI mới nhất, cài vào UEFI & kiểm thử kết quả thực tế</p>
+      <p>Tự động tải Grub4EFI mới nhất, cài Theme đẹp vào UEFI & kiểm thử thực tế</p>
     </div>
 
     <div class="menu-list">
@@ -335,7 +364,7 @@
         <div class="menu-icon">1</div>
         <div class="menu-info">
           <h2>Cài đặt Grub4EFI vào Menu Boot Windows</h2>
-          <p>Copy lệnh 1-dòng chạy từ GitHub (Tự tải Grub4EFI & sao lưu BCD)</p>
+          <p>Copy lệnh 1-dòng chạy từ GitHub (Tự tải Grub4EFI, cài Theme & sao lưu BCD)</p>
         </div>
         <div class="menu-arrow">⚡</div>
       </button>
@@ -352,8 +381,8 @@
       <button class="menu-btn config" id="btnMenuConfig">
         <div class="menu-icon">3</div>
         <div class="menu-info">
-          <h2>Menu boot của Grub4EFI</h2>
-          <p>Thêm nhanh bộ cài ISO, WIM, VHD hoặc Windows OS vào menu.lst</p>
+          <h2>Menu boot & Giao diện của Grub4EFI</h2>
+          <p>Thêm nhanh ISO, WIM, VHD, Windows OS & chọn 3 giao diện đồ họa đẹp mắt</p>
         </div>
         <div class="menu-arrow">⚙</div>
       </button>
@@ -362,7 +391,7 @@
         <div class="menu-icon">4</div>
         <div class="menu-info">
           <h2>Kiểm tra & Chạy thử kết quả đã cài</h2>
-          <p>Kiểm toán BCD/EFI thật, quét file ISO/VHD & boot thử qua máy ảo QEMU</p>
+          <p>Kiểm toán BCD/EFI thật, boot thử QEMU, tự dọn sạch file tạm & báo kết quả</p>
         </div>
         <div class="menu-arrow">▶</div>
       </button>
@@ -407,11 +436,11 @@
     </div>
   </div>
 
-  <!-- CỬA SỔ MỤC 3: 2 KHUNG (DANH SÁCH MỤC BOOT + XEM CODE MENU.LST) -->
+  <!-- CỬA SỔ MỤC 3: 2 KHUNG (DANH SÁCH MỤC BOOT + THEME + XEM CODE MENU.LST) -->
   <div class="modal-backdrop" id="configModalBackdrop">
     <div class="modal modal-wide">
       <div class="modal-header">
-        <h3>3/ Menu boot của Grub4EFI</h3>
+        <h3>3/ Menu boot & Giao diện của Grub4EFI</h3>
         <button class="btn-close" id="btnCloseConfigModal">✕</button>
       </div>
 
@@ -451,6 +480,18 @@
 
           <div class="item-box" id="entryListContainer"></div>
 
+          <div class="theme-box">
+            <div class="theme-box-title">
+              <span>🎨 Giao diện đồ họa Menu Boot (1024×768 + ảnh nền bg.jpg)</span>
+            </div>
+            <div class="theme-grid" id="themeGrid">
+              <button type="button" class="theme-chip t-1 active" data-theme="1">Cyber Blue</button>
+              <button type="button" class="theme-chip t-2" data-theme="2">Emerald Tech</button>
+              <button type="button" class="theme-chip t-3" data-theme="3">Midnight Violet</button>
+              <button type="button" class="theme-chip t-0" data-theme="0">Cơ bản</button>
+            </div>
+          </div>
+
           <div class="sync-box">
             <div class="sync-row">
               <label for="chkAutoSyncMedia">
@@ -468,7 +509,7 @@
             </div>
           </div>
 
-          <button class="btn-save-menu" id="btnApplyMenuDirect">⚡ Lưu &amp; Lấy lệnh cập nhật menu.lst</button>
+          <button class="btn-save-menu" id="btnApplyMenuDirect">⚡ Lưu &amp; Lấy lệnh cập nhật menu.lst + Theme</button>
         </div>
 
         <div class="sub-frame">
@@ -498,13 +539,13 @@
       <div id="panelTestQemu">
         <div class="check-pills">
           <div class="check-pill">1. Kiểm tra UEFI NVRAM / BCD</div>
-          <div class="check-pill">2. Kiểm tra Secure Boot</div>
+          <div class="check-pill">2. Kiểm tra Secure Boot &amp; Theme</div>
           <div class="check-pill">3. Quét file ISO/WIM/VHD trong menu.lst</div>
-          <div class="check-pill">4. Boot thử file EFI thật trên QEMU</div>
+          <div class="check-pill">4. Boot QEMU, tự dọn tạm &amp; báo kết quả</div>
         </div>
         <div class="step-guide">
           <strong>Chạy kiểm chứng ngay sau khi cài Mục 1 hoặc Mục 3:</strong><br/>
-          Lệnh bên dưới đã được <strong>tự động Copy</strong> — dán vào <strong>PowerShell</strong> và nhấn <kbd>Enter</kbd> để đọc trực tiếp <code>\EFI\grub\grub4efi.efi</code> và <code>menu.lst</code> vừa cài rồi mở cửa sổ máy ảo QEMU xem kết quả!
+          Lệnh bên dưới đã được <strong>tự động Copy</strong> — dán vào <strong>PowerShell</strong> và nhấn <kbd>Enter</kbd> để kiểm tra <code>\EFI\grub\grub4efi.efi</code>, <code>menu.lst</code>, <code>bg.jpg</code> trên QEMU, tự xóa sạch file tạm sau khi đóng QEMU và hiện hộp thoại kết quả chữ to!
         </div>
         <div class="cmd-box" id="qemuCmdDisplay"></div>
         <button class="btn-copy-big purple" id="btnCopyQemu">📋 Copy lại lệnh kiểm tra & chạy QEMU</button>
@@ -512,10 +553,11 @@
 
       <div id="panelSimOnline" style="display:none;">
         <div class="uefi-screen" id="uefiScreen">
-          <div class="uefi-top">GNU GRUB4DOS for UEFI 64-bit (Xem trước trực tuyến)</div>
+          <div class="uefi-top" id="uefiTopTitle">GRUB4EFI   UEFI   BOOT   STUDIO</div>
+          <div class="uefi-clock" id="uefiClock">2026-11-24   03:45:00</div>
           <div class="uefi-frame" id="uefiViewport"></div>
           <div class="uefi-footer">
-            <span>Phím: ↑/↓ chọn · Enter boot · E xem lệnh</span>
+            <span>[↑/↓] Chọn · [Enter] Khởi động · [E] Sửa lệnh</span>
             <span id="uefiTimerText">Tự động boot sau 5s...</span>
           </div>
         </div>
@@ -534,11 +576,42 @@
 
   <script>
     const STORAGE_KEY = 'g4e_boot_entries_v2';
+    const THEME_STORAGE_KEY = 'g4e_boot_theme_v1';
     const DEFAULT_ENTRIES = [
       { type: 'win', title: 'Khoi dong Windows OS', path: '/EFI/Microsoft/Boot/bootmgfw.efi', mem: false }
     ];
 
+    const THEMES = {
+      '1': {
+        name: 'Cyber Dark Blue',
+        normal: '0xE2E8F0', highlight: '0x000284C700FFFFFF', help: '0x94A3B8',
+        heading: '0x38BDF8', border: '0x38BDF8', timer: '0xFACC15',
+        simBg: 'radial-gradient(circle at top left, rgba(14,165,233,0.32), #020617 55%, rgba(99,102,241,0.28))',
+        simAccent: '#38bdf8', simSelBg: '#0284c7', simSelFg: '#ffffff'
+      },
+      '2': {
+        name: 'Emerald Tech',
+        normal: '0xECFDF5', highlight: '0x0005966900FFFFFF', help: '0xA7F3D0',
+        heading: '0x34D399', border: '0x10B981', timer: '0xFDE047',
+        simBg: 'radial-gradient(circle at top left, rgba(16,185,129,0.32), #021412 55%, rgba(20,184,166,0.26))',
+        simAccent: '#34d399', simSelBg: '#059669', simSelFg: '#ffffff'
+      },
+      '3': {
+        name: 'Midnight Violet',
+        normal: '0xF3E8FF', highlight: '0x007C3AED00FFFFFF', help: '0xD8B4FE',
+        heading: '0xE879F9', border: '0xA855F7', timer: '0xFDE047',
+        simBg: 'radial-gradient(circle at top left, rgba(168,85,247,0.34), #0f0720 55%, rgba(236,72,153,0.25))',
+        simAccent: '#e879f9', simSelBg: '#7c3aed', simSelFg: '#ffffff'
+      },
+      '0': {
+        name: 'Co ban',
+        simBg: '#020617',
+        simAccent: '#94a3b8', simSelBg: '#e2e8f0', simSelFg: '#020617'
+      }
+    };
+
     let bootEntries = loadEntries();
+    let selectedTheme = loadTheme();
     let pendingFileType = 'iso';
     let activeAction = 'install';
 
@@ -567,6 +640,7 @@
     const menuLstCodeBox = document.getElementById('menuLstCodeBox');
     const menuCount = document.getElementById('menuCount');
     const toastBox = document.getElementById('toastBox');
+    const themeChips = document.querySelectorAll('.theme-chip');
 
     function loadEntries() {
       try {
@@ -578,6 +652,18 @@
 
     function saveEntries() {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(bootEntries)); } catch (_) {}
+    }
+
+    function loadTheme() {
+      try {
+        const t = localStorage.getItem(THEME_STORAGE_KEY);
+        if (t && THEMES[t]) return t;
+      } catch (_) {}
+      return '1';
+    }
+
+    function saveTheme() {
+      try { localStorage.setItem(THEME_STORAGE_KEY, selectedTheme); } catch (_) {}
     }
 
     (function autoDetectGitHubRepo() {
@@ -654,11 +740,35 @@
 
     function buildMenuLstText() {
       const lines = ['timeout 5', 'default 0', ''];
+      if (selectedTheme !== '0' && THEMES[selectedTheme]) {
+        const t = THEMES[selectedTheme];
+        lines.push(`# === THEME: ${t.name} ===`);
+        lines.push('graphicsmode -1 1024 768');
+        lines.push('splashimage /EFI/grub/bg.jpg');
+        lines.push(`color normal=${t.normal} highlight=${t.highlight} helptext=${t.help} heading=${t.heading} standard=0xCBD5E1 border=${t.border}`);
+        lines.push('setmenu --lang=en --font-spacing=1:10 --highlight-full --ver-off --triangle-off --keyhelp-off');
+        lines.push('setmenu --box x=14 w=0 y=8 h=11 l=1');
+        lines.push('setmenu --help=14=0=20');
+        lines.push(`setmenu --timeout=14=22=${t.timer}`);
+        lines.push(`setmenu --string==3=${t.heading}="GRUB4EFI   UEFI   BOOT   STUDIO"`);
+        lines.push(`setmenu --string==5=${t.help}="date&time=yyyy-MM-dd   HH:mm:ss"`);
+        lines.push(`setmenu --string==-2=${t.help}="[Up/Down] Chon   |   [Enter] Khoi dong   |   [E] Sua lenh   |   [C] Console"`);
+        lines.push('');
+      }
       bootEntries.forEach((item, index) => {
-        lines.push(`title ${index + 1}. ${toAscii(item.title)}`);
+        const prefix = selectedTheme !== '0' ? ` [${index + 1}]  ` : `${index + 1}. `;
+        lines.push(`title ${prefix}${toAscii(item.title)}`);
         lines.push(...getCommandsForEntry(item));
         lines.push('');
       });
+      if (selectedTheme !== '0') {
+        lines.push('title  [R]  Khoi dong lai may (Reboot)');
+        lines.push('reboot');
+        lines.push('');
+        lines.push('title  [S]  Tat may (Shutdown)');
+        lines.push('halt');
+        lines.push('');
+      }
       return lines.join('\r\n');
     }
 
@@ -677,20 +787,23 @@
       const hasMedia = bootEntries.some(x => x.type === 'iso' || x.type === 'wim' || x.type === 'vhd');
       const shouldSync = chkAutoSyncMedia.checked && hasMedia;
       const syncCmd = shouldSync ? `irm "${baseUrl}/sync_media.ps1?t=$(Get-Random)" | iex; ` : '';
+      const themePostCmd = (selectedTheme !== '0')
+        ? `; $env:G4E_THEME="${selectedTheme}"; $env:G4E_ONLY_BG="1"; irm "${baseUrl}/apply_theme.ps1?t=$(Get-Random)" | iex`
+        : '';
 
       if (mode === 'menu_only') {
         const drvPart = shouldSync ? `$env:G4E_DATA_DRIVE="${selDataDrive.value}"; ` : '';
-        return `$env:G4E_ONLY_MENU="1"; ${drvPart}$env:G4E_MENU="${b64}"; ${syncCmd}irm "${baseUrl}/install.ps1?t=$(Get-Random)" | iex`;
+        return `$env:G4E_ONLY_MENU="1"; ${drvPart}$env:G4E_MENU="${b64}"; ${syncCmd}irm "${baseUrl}/install.ps1?t=$(Get-Random)" | iex${themePostCmd}`;
       }
 
       const envParts = [];
       if (!chkBootFirst.checked) envParts.push(`$env:G4E_BOOT_FIRST="0"`);
-      const isDefaultOnly = bootEntries.length === 1 && bootEntries[0].type === 'win';
+      const isDefaultOnly = bootEntries.length === 1 && bootEntries[0].type === 'win' && selectedTheme === '0';
       if (!isDefaultOnly) envParts.push(`$env:G4E_MENU="${b64}"`);
       if (shouldSync) envParts.push(`$env:G4E_DATA_DRIVE="${selDataDrive.value}"`);
 
       const prefix = envParts.length > 0 ? `${envParts.join('; ')}; ` : '';
-      return `${prefix}${syncCmd}irm "${baseUrl}/install.ps1?t=$(Get-Random)" | iex`;
+      return `${prefix}${syncCmd}irm "${baseUrl}/install.ps1?t=$(Get-Random)" | iex${themePostCmd}`;
     }
 
     async function openRunModal(mode, titleText) {
@@ -720,9 +833,27 @@
     });
     document.getElementById('btnCloseRunModal').addEventListener('click', () => runModalBackdrop.classList.remove('open'));
 
+    /* === CHỌN GIAO DIỆN THEME === */
+    function updateThemeButtons() {
+      themeChips.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === selectedTheme);
+      });
+    }
+
+    themeChips.forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedTheme = btn.dataset.theme;
+        saveTheme();
+        updateThemeButtons();
+        menuLstCodeBox.textContent = buildMenuLstText();
+        showToast(`🎨 Đã chọn giao diện: ${THEMES[selectedTheme].name}`);
+      });
+    });
+
     /* === MỤC 3: CẤU HÌNH MENU (2 KHUNG) === */
     function renderEntries() {
       saveEntries();
+      updateThemeButtons();
       menuCount.textContent = `${bootEntries.length} mục`;
       menuLstCodeBox.textContent = buildMenuLstText();
 
@@ -809,10 +940,13 @@
     document.getElementById('btnApplyMenuDirect').addEventListener('click', () => {
       if (bootEntries.length === 0) { showToast('⚠ Danh sách đang trống!'); return; }
       configModalBackdrop.classList.remove('open');
-      openRunModal('menu_only', 'Cập nhật menu.lst & Đồng bộ ISO/WIM/VHD');
+      openRunModal('menu_only', 'Cập nhật menu.lst, Theme & Đồng bộ ISO/WIM/VHD');
     });
 
     /* === MỤC 4: KIỂM TRA THẬT + QEMU & XEM TRƯỚC ONLINE === */
+    const uefiScreen = document.getElementById('uefiScreen');
+    const uefiTopTitle = document.getElementById('uefiTopTitle');
+    const uefiClock = document.getElementById('uefiClock');
     const uefiViewport = document.getElementById('uefiViewport');
     const uefiTimerText = document.getElementById('uefiTimerText');
     const panelSimOnline = document.getElementById('panelSimOnline');
@@ -820,12 +954,26 @@
     const tabSimOnline = document.getElementById('tabSimOnline');
     const tabTestQemu = document.getElementById('tabTestQemu');
 
+    function applySimThemeStyle() {
+      const t = THEMES[selectedTheme] || THEMES['1'];
+      uefiScreen.style.background = t.simBg;
+      uefiTopTitle.style.color = t.simAccent;
+      uefiViewport.style.borderColor = t.simAccent;
+      uefiClock.style.display = selectedTheme === '0' ? 'none' : 'block';
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      uefiClock.textContent = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}   ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    }
+
     function stopSimTimer() {
       if (simInterval) { clearInterval(simInterval); simInterval = null; }
       uefiTimerText.textContent = simMode === 'menu' ? 'Đã tạm dừng đếm ngược' : 'Nhấn Reboot ảo để quay lại Menu';
     }
 
     function renderUefiSim() {
+      applySimThemeStyle();
+      const t = THEMES[selectedTheme] || THEMES['1'];
+
       if (bootEntries.length === 0) {
         uefiViewport.innerHTML = `<div class="uefi-console">grub> _\n(menu.lst dang trong — hay them muc o Muc 3)</div>`;
         return;
@@ -833,11 +981,12 @@
       if (simSelectedIdx >= bootEntries.length) simSelectedIdx = 0;
 
       if (simMode === 'menu') {
-        uefiViewport.innerHTML = bootEntries.map((item, idx) => `
-          <div class="uefi-item ${idx === simSelectedIdx ? 'selected' : ''}" onclick="simPick(${idx})">
-            ${idx + 1}. ${escHtml(toAscii(item.title))}
-          </div>
-        `).join('');
+        uefiViewport.innerHTML = bootEntries.map((item, idx) => {
+          const isSel = idx === simSelectedIdx;
+          const style = isSel ? `background:${t.simSelBg};color:${t.simSelFg};font-weight:800;` : '';
+          const label = selectedTheme !== '0' ? `[${idx + 1}]  ` : `${idx + 1}. `;
+          return `<div class="uefi-item ${isSel ? 'selected' : ''}" style="${style}" onclick="simPick(${idx})">${label}${escHtml(toAscii(item.title))}</div>`;
+        }).join('');
       } else if (simMode === 'edit') {
         const item = bootEntries[simSelectedIdx];
         const cmds = getCommandsForEntry(item).join('\n');

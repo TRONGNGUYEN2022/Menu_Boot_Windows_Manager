@@ -361,10 +361,11 @@ function Clear-AllTempFiles([string]$baseDir) {
 
 function Show-ResultDialog {
     param(
-        [string]$StatusMode, # "ok" | "warn" | "fail"
+        [string]$StatusMode,
         [bool]$BcdOk,
         [string]$SecureBootState,
         [bool]$EfiFilesOk,
+        [bool]$HasThemeBg,
         [int]$MissingMediaCount,
         [bool]$QemuOk,
         [bool]$CleanedAll,
@@ -378,7 +379,7 @@ function Show-ResultDialog {
         [System.Windows.Forms.Application]::EnableVisualStyles()
 
         $hasGuid = -not [string]::IsNullOrWhiteSpace($GrubGuid)
-        $formHeight = if ($hasGuid) { 525 } else { 445 }
+        $formHeight = if ($hasGuid) { 540 } else { 460 }
 
         $form = New-Object System.Windows.Forms.Form
         $form.Text = U "K\u1EBFt qu\u1EA3 Ki\u1EC3m tra & Ch\u1EA1y th\u1EED Grub4EFI"
@@ -436,6 +437,7 @@ function Show-ResultDialog {
         }
 
         $lines.Add($(if ($EfiFilesOk) { U "\u2022 File EFI (grub4efi.efi & menu.lst): \u0110\u1EA6Y \u0110\u1EE6" } else { U "\u2022 File EFI (grub4efi.efi & menu.lst): THI\u1EBEU FILE" }))
+        $lines.Add($(if ($HasThemeBg) { U "\u2022 Giao di\u1EC7n n\u1EC1n (bg.jpg): \u0110\u00E3 c\u00E0i tr\u00EAn ph\u00E2n v\u00F9ng EFI" } else { U "\u2022 Giao di\u1EC7n n\u1EC1n (bg.jpg): D\u00F9ng ch\u1EBF \u0111\u1ED9 c\u01A1 b\u1EA3n" }))
 
         if ($EfiFilesOk) {
             if ($MissingMediaCount -eq 0) {
@@ -455,7 +457,7 @@ function Show-ResultDialog {
 
         $txtBox = New-Object System.Windows.Forms.TextBox
         $txtBox.Location = New-Object System.Drawing.Point(24, 136)
-        $txtBox.Size = New-Object System.Drawing.Size(712, 225)
+        $txtBox.Size = New-Object System.Drawing.Size(712, 240)
         $txtBox.Multiline = $true
         $txtBox.ReadOnly = $true
         $txtBox.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
@@ -467,12 +469,12 @@ function Show-ResultDialog {
         $txtBox.TabStop = $false
         $form.Controls.Add($txtBox)
 
-        $btnY = 380
+        $btnY = 394
         if ($hasGuid) {
             $bootSeqCmd = "bcdedit /set {fwbootmgr} bootsequence $GrubGuid"
 
             $lblHint = New-Object System.Windows.Forms.Label
-            $lblHint.Location = New-Object System.Drawing.Point(24, 374)
+            $lblHint.Location = New-Object System.Drawing.Point(24, 388)
             $lblHint.Size = New-Object System.Drawing.Size(712, 24)
             $lblHint.UseMnemonic = $false
             $lblHint.ForeColor = [System.Drawing.Color]::FromArgb(3, 105, 161)
@@ -481,7 +483,7 @@ function Show-ResultDialog {
             $form.Controls.Add($lblHint)
 
             $txtCmd = New-Object System.Windows.Forms.TextBox
-            $txtCmd.Location = New-Object System.Drawing.Point(24, 402)
+            $txtCmd.Location = New-Object System.Drawing.Point(24, 416)
             $txtCmd.Size = New-Object System.Drawing.Size(712, 34)
             $txtCmd.ReadOnly = $true
             $txtCmd.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
@@ -490,7 +492,7 @@ function Show-ResultDialog {
             $txtCmd.Text = $bootSeqCmd
             $form.Controls.Add($txtCmd)
 
-            $btnY = 454
+            $btnY = 468
 
             $btnCopy = New-Object System.Windows.Forms.Button
             $btnCopy.Location = New-Object System.Drawing.Point(24, $btnY)
@@ -545,6 +547,7 @@ Write-Host "==============================================================" -For
 $bcdOk = $false
 $sbState = "unknown"
 $efiFilesOk = $false
+$hasThemeBg = $false
 $missingMedia = 0
 $qemuOk = $false
 $failReason = ""
@@ -563,7 +566,7 @@ try {
 
     if ($grubBlock) {
         $bcdOk = $true
-        $m = [regex]::Match($grubBlock, "\{[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}")
+        $m = [regex]::Match($grubBlock, "\{[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}" )
         if ($m.Success) { $grubGuid = $m.Value }
         Write-Host "  [PASS] Da tim thay muc boot: Grub4EFI ($grubGuid)" -ForegroundColor Green
 
@@ -606,16 +609,32 @@ try {
     $hasMenuFile = $false
     $efi = Mount-ActiveEfi
     try {
-        $realEfiFile = "$($efi.Drive)\EFI\grub\grub4efi.efi"
-        $realMenuLst = "$($efi.Drive)\EFI\grub\menu.lst"
+        $realGrubDir = "$($efi.Drive)\EFI\grub"
+        $realEfiFile = "$realGrubDir\grub4efi.efi"
+        $realMenuLst = "$realGrubDir\menu.lst"
+        $realBgFile  = "$realGrubDir\bg.jpg"
 
         if ([System.IO.File]::Exists($realEfiFile)) {
             $hasEfiBin = $true
             $efiKB = [math]::Round((Get-Item $realEfiFile).Length / 1KB, 1)
             Write-Host "  [PASS] Co file that: $realEfiFile ($efiKB KB)" -ForegroundColor Green
             [System.IO.File]::Copy($realEfiFile, "$EspDir\EFI\BOOT\BOOTX64.EFI", $true)
+            [System.IO.File]::Copy($realEfiFile, "$EspDir\EFI\grub\grub4efi.efi", $true)
         } else {
             Write-Host "  [FAIL] Khong thay file $realEfiFile!" -ForegroundColor Red
+        }
+
+        # Copy anh nen va cac tep tai nguyen giao dien (bg.jpg, font...) vao ESP ao de QEMU hien thi giong het may that
+        if ([System.IO.File]::Exists($realBgFile)) {
+            $hasThemeBg = $true
+            $bgKB = [math]::Round((Get-Item $realBgFile).Length / 1KB, 1)
+            Write-Host "  [PASS] Co anh nen giao dien: $realBgFile ($bgKB KB)" -ForegroundColor Green
+            [System.IO.File]::Copy($realBgFile, "$EspDir\EFI\grub\bg.jpg", $true)
+        }
+        Get-ChildItem -Path $realGrubDir -File -ErrorAction SilentlyContinue | Where-Object {
+            $_.Extension -in @('.jpg', '.jpeg', '.bmp', '.hex', '.gz')
+        } | ForEach-Object {
+            [System.IO.File]::Copy($_.FullName, (Join-Path "$EspDir\EFI\grub" $_.Name), $true)
         }
 
         if ([System.IO.File]::Exists($realMenuLst)) {
@@ -662,7 +681,7 @@ try {
         return
     }
 
-    # === PHẦN 4: CHẠY THỬ CHÍNH BỘ GRUB4EFI + MENU.LST THẬT TRONG QEMU UEFI MINI ===
+    # === PHẦN 4: CHẠY THỬ CHÍNH BỘ GRUB4EFI + MENU.LST + THEME THẬT TRONG QEMU UEFI MINI ===
     Write-Host "`n[4/4] Chay thu chinh grub4efi.efi va menu.lst vua cai trong may ao QEMU UEFI..." -ForegroundColor Yellow
     $qemuExe = Find-QemuBinary $MiniDir
 
@@ -726,6 +745,7 @@ try {
         -BcdOk $bcdOk `
         -SecureBootState $sbState `
         -EfiFilesOk $efiFilesOk `
+        -HasThemeBg $hasThemeBg `
         -MissingMediaCount $missingMedia `
         -QemuOk $qemuOk `
         -CleanedAll $cleanedAll `
