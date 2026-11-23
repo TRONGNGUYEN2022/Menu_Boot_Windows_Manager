@@ -14,6 +14,7 @@
       --blue-grad: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
       --red-grad: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
       --green-grad: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      --purple-grad: linear-gradient(135deg, #7c3aed 0%, #c026d3 100%);
       --amber-grad: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
     }
     * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
@@ -32,7 +33,7 @@
       box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15);
       border: 2px solid #ffffff;
     }
-    .header { text-align: center; margin-bottom: 26px; }
+    .header { text-align: center; margin-bottom: 24px; }
     .badge {
       display: inline-block;
       background: #eff6ff; color: #2563eb;
@@ -48,11 +49,11 @@
     }
     .header p { margin: 8px 0 0; color: var(--muted); font-size: 15px; font-weight: 500; }
 
-    .menu-list { display: flex; flex-direction: column; gap: 16px; }
+    .menu-list { display: flex; flex-direction: column; gap: 14px; }
     .menu-btn {
       display: flex; align-items: center; gap: 18px;
       width: 100%; text-align: left;
-      padding: 20px 24px;
+      padding: 18px 22px;
       border: none; border-radius: 18px;
       color: #ffffff; cursor: pointer;
       transition: transform 0.18s ease, box-shadow 0.18s ease;
@@ -65,20 +66,21 @@
     .menu-btn.install { background: var(--blue-grad); }
     .menu-btn.remove  { background: var(--red-grad); }
     .menu-btn.config  { background: var(--green-grad); }
+    .menu-btn.test    { background: var(--purple-grad); }
 
     .menu-icon {
-      width: 54px; height: 54px; flex-shrink: 0;
+      width: 50px; height: 50px; flex-shrink: 0;
       background: rgba(255, 255, 255, 0.22);
       border-radius: 14px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 26px; font-weight: 900;
+      font-size: 24px; font-weight: 900;
     }
-    .menu-info h2 { margin: 0; font-size: 18px; font-weight: 800; }
-    .menu-info p { margin: 4px 0 0; font-size: 13.5px; opacity: 0.92; font-weight: 500; }
+    .menu-info h2 { margin: 0; font-size: 17.5px; font-weight: 800; }
+    .menu-info p { margin: 4px 0 0; font-size: 13px; opacity: 0.92; font-weight: 500; }
     .menu-arrow { margin-left: auto; font-size: 22px; font-weight: 900; opacity: 0.9; }
 
     .status-bar {
-      margin-top: 22px; padding: 14px 18px; border-radius: 14px;
+      margin-top: 20px; padding: 13px 18px; border-radius: 14px;
       background: #ecfdf5; border: 2px solid #6ee7b7; color: #065f46;
       display: flex; align-items: center; justify-content: space-between;
       font-size: 13.5px; font-weight: 700;
@@ -91,16 +93,16 @@
     /* Modals */
     .modal-backdrop {
       position: fixed; inset: 0;
-      background: rgba(15, 23, 42, 0.58);
+      background: rgba(15, 23, 42, 0.62);
       backdrop-filter: blur(5px);
       display: none; align-items: center; justify-content: center;
       padding: 16px; z-index: 50;
     }
     .modal-backdrop.open { display: flex; }
     .modal {
-      width: 100%; max-width: 600px;
-      background: #ffffff; border-radius: 22px; padding: 26px;
-      box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+      width: 100%; max-width: 640px;
+      background: #ffffff; border-radius: 22px; padding: 24px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.35);
       animation: popIn 0.2s ease;
       max-height: 92vh; overflow-y: auto;
     }
@@ -143,10 +145,11 @@
     }
     .boot-opt-row input { width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer; }
     .btn-copy-big {
-      width: 100%; padding: 15px; border: none; border-radius: 14px;
+      width: 100%; padding: 14px; border: none; border-radius: 14px;
       background: var(--blue-grad); color: #fff;
       font-size: 15px; font-weight: 800; cursor: pointer;
     }
+    .btn-copy-big.purple { background: var(--purple-grad); }
     .repo-bar {
       margin-top: 12px; display: flex; gap: 8px; align-items: center;
       font-size: 12px; color: #64748b;
@@ -156,6 +159,7 @@
       border: 1px solid #cbd5e1; font-size: 12px; color: #0f172a;
     }
 
+    /* Config Modal */
     .sub-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
     .sub-btn {
       padding: 16px; border: none; border-radius: 14px;
@@ -183,13 +187,8 @@
       background: #d97706; color: #fff; border: none;
       padding: 0 16px; border-radius: 10px; font-weight: 800; cursor: pointer;
     }
-    .mem-check {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 12.5px; color: #78350f; font-weight: 600;
-    }
-    .wim-note {
-      display: none; margin-top: 6px; font-size: 11.5px; color: #b45309;
-    }
+    .mem-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #78350f; font-weight: 600; }
+    .wim-note { display: none; margin-top: 6px; font-size: 11.5px; color: #b45309; }
 
     .item-box {
       background: #f8fafc; border: 1.5px solid #e2e8f0;
@@ -218,15 +217,66 @@
       background: #f1f5f9; color: #334155; border: none;
       width: 26px; height: 26px; border-radius: 7px; font-weight: 800; cursor: pointer; font-size: 12px;
     }
-    .btn-mini:hover { background: #e2e8f0; }
     .btn-del { background: #fee2e2; color: #dc2626; }
-    .btn-del:hover { background: #fecaca; }
-
     .btn-save-menu {
       width: 100%; padding: 14px; border: none; border-radius: 12px;
       background: var(--green-grad); color: #fff;
       font-size: 15px; font-weight: 800; cursor: pointer;
     }
+
+    /* Test Modal (Real Check + QEMU & Online Simulator) */
+    .test-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .test-tab {
+      padding: 12px; border-radius: 12px; border: 2px solid #e2e8f0;
+      background: #f8fafc; color: #475569; font-weight: 800; font-size: 13.5px; cursor: pointer;
+    }
+    .test-tab.active {
+      background: var(--purple-grad); color: #ffffff; border-color: transparent;
+    }
+    .check-pills {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
+    }
+    .check-pill {
+      background: #faf5ff; border: 1.5px solid #e9d5ff; color: #6b21a8;
+      padding: 9px 11px; border-radius: 10px; font-size: 12.5px; font-weight: 700;
+    }
+    .uefi-screen {
+      background: #020617; color: #e2e8f0;
+      border: 4px solid #334155; border-radius: 12px;
+      padding: 16px; font-family: 'Consolas', 'Courier New', monospace;
+      min-height: 265px; display: flex; flex-direction: column;
+      box-shadow: inset 0 0 24px rgba(0,0,0,0.9);
+      margin-bottom: 12px;
+    }
+    .uefi-top {
+      text-align: center; color: #38bdf8; font-weight: 700; font-size: 13px;
+      margin-bottom: 10px; letter-spacing: 0.5px;
+    }
+    .uefi-frame {
+      border: 2px solid #64748b; padding: 10px; flex: 1;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .uefi-item {
+      padding: 6px 10px; font-size: 13.5px; cursor: pointer; border-radius: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .uefi-item.selected { background: #e2e8f0; color: #020617; font-weight: 800; }
+    .uefi-console {
+      font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; color: #4ade80;
+    }
+    .uefi-console .warn { color: #fbbf24; }
+    .uefi-footer {
+      margin-top: 10px; font-size: 11.5px; color: #94a3b8;
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px;
+    }
+    .sim-controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .sim-btn {
+      padding: 8px 13px; border-radius: 10px; border: 1.5px solid #cbd5e1;
+      background: #ffffff; color: #0f172a; font-weight: 700; font-size: 12.5px; cursor: pointer;
+    }
+    .sim-btn:hover { background: #f1f5f9; }
+    .sim-btn.primary { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+
     .toast {
       position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
       background: #0f172a; color: #fff; padding: 12px 22px; border-radius: 14px;
@@ -238,9 +288,9 @@
 <body>
   <div class="app-card">
     <div class="header">
-      <span class="badge">Chạy trực tiếp từ GitHub · An toàn UEFI</span>
+      <span class="badge">Chạy trực tiếp từ GitHub · Kiểm tra thật & QEMU</span>
       <h1>Grub4EFI Boot Studio</h1>
-      <p>Tự động tải Grub4EFI mới nhất & tích hợp vào Menu Boot UEFI</p>
+      <p>Tự động tải Grub4EFI mới nhất, cài vào UEFI & kiểm thử kết quả thực tế</p>
     </div>
 
     <div class="menu-list">
@@ -270,6 +320,15 @@
         </div>
         <div class="menu-arrow">⚙</div>
       </button>
+
+      <button class="menu-btn test" id="btnMenuTest">
+        <div class="menu-icon">4</div>
+        <div class="menu-info">
+          <h2>Kiểm tra & Chạy thử kết quả đã cài</h2>
+          <p>Kiểm toán BCD/EFI thật, quét file ISO/VHD & boot thử qua máy ảo QEMU</p>
+        </div>
+        <div class="menu-arrow">▶</div>
+      </button>
     </div>
 
     <div class="status-bar">
@@ -278,7 +337,7 @@
     </div>
   </div>
 
-  <!-- CỬA SỔ CHẠY LỆNH 1 DÒNG CHUẨN MAS -->
+  <!-- CỬA SỔ CHẠY LỆNH 1 DÒNG CHUẨN MAS (MỤC 1 & 2) -->
   <div class="modal-backdrop" id="runModalBackdrop">
     <div class="modal">
       <div class="modal-header">
@@ -296,7 +355,7 @@
       <div class="boot-opt-row" id="bootFirstRow">
         <input type="checkbox" id="chkBootFirst" checked />
         <label for="chkBootFirst" style="cursor:pointer">
-          Đưa Grub4EFI làm Menu khởi động chính (đếm ngược 5 giây tự vào mục đầu tiên). Bỏ tích nếu chỉ muốn gọi qua phím Boot BIOS (F12/F8).
+          Đưa Grub4EFI làm Menu khởi động chính (đếm ngược 5 giây tự vào mục đầu tiên). Bỏ tích nếu muốn giữ rEFInd / Windows mặc định.
         </label>
       </div>
 
@@ -353,6 +412,56 @@
     </div>
   </div>
 
+  <!-- CỬA SỔ MỤC 4: KIỂM TRA KẾT QUẢ THẬT + QEMU & XEM TRƯỚC ONLINE -->
+  <div class="modal-backdrop" id="testModalBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>4/ Kiểm tra & Chạy thử kết quả đã cài</h3>
+        <button class="btn-close" id="btnCloseTestModal">✕</button>
+      </div>
+
+      <div class="test-tabs">
+        <button class="test-tab active" id="tabTestQemu">💻 Kiểm tra thật & Boot QEMU</button>
+        <button class="test-tab" id="tabSimOnline">🌐 Xem trước Menu Online</button>
+      </div>
+
+      <!-- TAB A (MẶC ĐỊNH): KIỂM TRA BẢN CÀI THẬT & BOOT QEMU -->
+      <div id="panelTestQemu">
+        <div class="check-pills">
+          <div class="check-pill">1. Kiểm tra UEFI NVRAM / BCD</div>
+          <div class="check-pill">2. Kiểm tra Secure Boot</div>
+          <div class="check-pill">3. Quét file ISO/VHD trong menu.lst</div>
+          <div class="check-pill">4. Boot thử file EFI thật trên QEMU</div>
+        </div>
+        <div class="step-guide">
+          <strong>Chạy kiểm chứng ngay sau khi cài Mục 1 hoặc Mục 3:</strong><br/>
+          Lệnh bên dưới đã được <strong>tự động Copy</strong> — dán vào <strong>PowerShell</strong> và nhấn <kbd>Enter</kbd> để đọc trực tiếp <code>\EFI\grub\grub4efi.efi</code> và <code>menu.lst</code> vừa cài rồi mở cửa sổ máy ảo QEMU xem kết quả!
+        </div>
+        <div class="cmd-box" id="qemuCmdDisplay"></div>
+        <button class="btn-copy-big purple" id="btnCopyQemu">📋 Copy lại lệnh kiểm tra & chạy QEMU</button>
+      </div>
+
+      <!-- TAB B: ONLINE SIMULATOR -->
+      <div id="panelSimOnline" style="display:none;">
+        <div class="uefi-screen" id="uefiScreen">
+          <div class="uefi-top">GNU GRUB4DOS for UEFI 64-bit (Xem trước trực tuyến)</div>
+          <div class="uefi-frame" id="uefiViewport"></div>
+          <div class="uefi-footer">
+            <span>Phím: ↑/↓ chọn · Enter boot · E xem lệnh</span>
+            <span id="uefiTimerText">Tự động boot sau 5s...</span>
+          </div>
+        </div>
+        <div class="sim-controls">
+          <button class="sim-btn" id="simUp">▲ Lên</button>
+          <button class="sim-btn" id="simDown">▼ Xuống</button>
+          <button class="sim-btn primary" id="simEnter">↵ Boot thử</button>
+          <button class="sim-btn" id="simEdit">📄 Xem lệnh (E)</button>
+          <button class="sim-btn" id="simReset">🔄 Reboot ảo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toastBox"></div>
 
   <script>
@@ -365,9 +474,16 @@
     let pendingFileType = 'iso';
     let activeAction = 'install';
 
+    let simSelectedIdx = 0;
+    let simMode = 'menu';
+    let simCountdown = 5;
+    let simInterval = null;
+
     const runModalBackdrop = document.getElementById('runModalBackdrop');
     const configModalBackdrop = document.getElementById('configModalBackdrop');
+    const testModalBackdrop = document.getElementById('testModalBackdrop');
     const oneLinerDisplay = document.getElementById('oneLinerDisplay');
+    const qemuCmdDisplay = document.getElementById('qemuCmdDisplay');
     const repoSlugInput = document.getElementById('repoSlugInput');
     const bootFirstRow = document.getElementById('bootFirstRow');
     const chkBootFirst = document.getElementById('chkBootFirst');
@@ -393,7 +509,6 @@
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(bootEntries)); } catch (_) {}
     }
 
-    // Tự động nhận diện user/repo khi chạy trên GitHub Pages (*.github.io)
     (function autoDetectGitHubRepo() {
       const host = window.location.hostname;
       if (host.endsWith('.github.io')) {
@@ -425,28 +540,29 @@
       return btoa(bin);
     }
 
+    function getCommandsForEntry(item) {
+      const memFlag = item.mem ? ' --mem' : '';
+      if (item.type === 'iso') {
+        return [`find --set-root ${item.path}`, `map${memFlag} ${item.path} (0xff)`, `chainloader (0xff)`];
+      }
+      if (item.type === 'vhd') {
+        return [`find --set-root ${item.path}`, `map${memFlag} ${item.path} (hd)`, `chainloader (hd-1)`];
+      }
+      if (item.type === 'wim') {
+        return [
+          `find --set-root ${item.path}`,
+          `kernel /EFI/grub/ntloader initrd=/EFI/grub/initrd.lz1 uuid=%?_UUID% file=${item.path}`,
+          `initrd /EFI/grub/initrd.lz1`
+        ];
+      }
+      return [`find --set-root /EFI/Microsoft/Boot/bootmgfw.efi`, `chainloader /EFI/Microsoft/Boot/bootmgfw.efi`];
+    }
+
     function buildMenuLstB64() {
       const lines = ['timeout 5', 'default 0', ''];
       bootEntries.forEach((item, index) => {
-        const cleanTitle = toAscii(item.title);
-        const memFlag = item.mem ? ' --mem' : '';
-        lines.push(`title ${index + 1}. ${cleanTitle}`);
-        if (item.type === 'iso') {
-          lines.push(`find --set-root ${item.path}`);
-          lines.push(`map${memFlag} ${item.path} (0xff)`);
-          lines.push(`chainloader (0xff)`);
-        } else if (item.type === 'vhd') {
-          lines.push(`find --set-root ${item.path}`);
-          lines.push(`map${memFlag} ${item.path} (hd)`);
-          lines.push(`chainloader (hd-1)`);
-        } else if (item.type === 'wim') {
-          lines.push(`find --set-root ${item.path}`);
-          lines.push(`kernel /EFI/grub/ntloader initrd=/EFI/grub/initrd.lz1 uuid=%?_UUID% file=${item.path}`);
-          lines.push(`initrd /EFI/grub/initrd.lz1`);
-        } else {
-          lines.push(`find --set-root /EFI/Microsoft/Boot/bootmgfw.efi`);
-          lines.push(`chainloader /EFI/Microsoft/Boot/bootmgfw.efi`);
-        }
+        lines.push(`title ${index + 1}. ${toAscii(item.title)}`);
+        lines.push(...getCommandsForEntry(item));
         lines.push('');
       });
       return utf8ToBase64(lines.join('\r\n'));
@@ -455,7 +571,9 @@
     function buildOneLiner(mode) {
       const slug = repoSlugInput.value.trim() || 'trongnguyen2022/Menu_Boot_Windows_Manager';
       const baseUrl = `https://raw.githubusercontent.com/${slug}/main`;
+
       if (mode === 'remove') return `irm ${baseUrl}/remove.ps1 | iex`;
+      if (mode === 'qemu') return `irm ${baseUrl}/test_qemu.ps1 | iex`;
 
       const b64 = buildMenuLstB64();
       if (mode === 'menu_only') {
@@ -485,28 +603,25 @@
       } catch (_) {}
     }
 
-    document.getElementById('btnMenuInstall').addEventListener('click', () => {
-      openRunModal('install', '1/ Cài đặt Grub4EFI vào Menu Boot');
-    });
-
-    document.getElementById('btnMenuRemove').addEventListener('click', () => {
-      openRunModal('remove', '2/ Gỡ bỏ Grub4EFI khỏi Menu Boot');
-    });
+    document.getElementById('btnMenuInstall').addEventListener('click', () => openRunModal('install', '1/ Cài đặt Grub4EFI vào Menu Boot'));
+    document.getElementById('btnMenuRemove').addEventListener('click', () => openRunModal('remove', '2/ Gỡ bỏ Grub4EFI khỏi Menu Boot'));
 
     [repoSlugInput, chkBootFirst].forEach(el => {
-      el.addEventListener('input', () => { oneLinerDisplay.textContent = buildOneLiner(activeAction); });
-      el.addEventListener('change', () => { oneLinerDisplay.textContent = buildOneLiner(activeAction); });
+      const refresh = () => {
+        oneLinerDisplay.textContent = buildOneLiner(activeAction);
+        qemuCmdDisplay.textContent = buildOneLiner('qemu');
+      };
+      el.addEventListener('input', refresh);
+      el.addEventListener('change', refresh);
     });
 
     document.getElementById('btnCopyAgain').addEventListener('click', async () => {
       await navigator.clipboard.writeText(oneLinerDisplay.textContent);
       showToast('✓ Đã Copy lại câu lệnh!');
     });
+    document.getElementById('btnCloseRunModal').addEventListener('click', () => runModalBackdrop.classList.remove('open'));
 
-    document.getElementById('btnCloseRunModal').addEventListener('click', () => {
-      runModalBackdrop.classList.remove('open');
-    });
-
+    /* === MỤC 3: CẤU HÌNH MENU === */
     function renderEntries() {
       saveEntries();
       menuCount.textContent = `${bootEntries.length} mục`;
@@ -539,40 +654,22 @@
       [bootEntries[idx], bootEntries[next]] = [bootEntries[next], bootEntries[idx]];
       renderEntries();
     };
+    window.removeEntry = function(idx) { bootEntries.splice(idx, 1); renderEntries(); };
 
-    window.removeEntry = function(idx) {
-      bootEntries.splice(idx, 1);
-      renderEntries();
-    };
+    document.getElementById('btnMenuConfig').addEventListener('click', () => { renderEntries(); configModalBackdrop.classList.add('open'); });
+    document.getElementById('btnCloseConfigModal').addEventListener('click', () => { configModalBackdrop.classList.remove('open'); fileConfirmBox.classList.remove('show'); });
 
-    document.getElementById('btnMenuConfig').addEventListener('click', () => {
-      renderEntries();
-      configModalBackdrop.classList.add('open');
-    });
-
-    document.getElementById('btnCloseConfigModal').addEventListener('click', () => {
-      configModalBackdrop.classList.remove('open');
-      fileConfirmBox.classList.remove('show');
-    });
-
-    document.getElementById('btnOptFile').addEventListener('click', () => {
-      hiddenFilePicker.value = '';
-      hiddenFilePicker.click();
-    });
-
+    document.getElementById('btnOptFile').addEventListener('click', () => { hiddenFilePicker.value = ''; hiddenFilePicker.click(); });
     hiddenFilePicker.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const ext = file.name.split('.').pop().toLowerCase();
       pendingFileType = (ext === 'wim') ? 'wim' : ((ext === 'vhd' || ext === 'vhdx') ? 'vhd' : 'iso');
-
       const folder = pendingFileType === 'wim' ? '/sources/' : (pendingFileType === 'vhd' ? '/VHD/' : '/ISO/');
       detectedRelPath.value = `${folder}${file.name}`;
-
       chkMapMem.checked = (pendingFileType === 'iso');
       memCheckWrap.style.display = (pendingFileType === 'wim') ? 'none' : 'flex';
       wimNote.style.display = (pendingFileType === 'wim') ? 'block' : 'none';
-
       fileConfirmBox.classList.add('show');
       detectedRelPath.focus();
     });
@@ -582,7 +679,6 @@
       if (!relPath) return;
       if (!relPath.startsWith('/')) relPath = '/' + relPath;
       const fileName = relPath.split('/').pop();
-
       bootEntries.push({
         type: pendingFileType,
         title: `Boot ${pendingFileType.toUpperCase()}: ${fileName}`,
@@ -595,27 +691,142 @@
     });
 
     document.getElementById('btnOptWin').addEventListener('click', () => {
-      if (bootEntries.some(x => x.type === 'win')) {
-        showToast('ℹ Mục "Windows OS" đã có sẵn trong danh sách!');
-        return;
-      }
-      bootEntries.unshift({
-        type: 'win',
-        title: 'Khoi dong Windows OS',
-        path: '/EFI/Microsoft/Boot/bootmgfw.efi',
-        mem: false
-      });
+      if (bootEntries.some(x => x.type === 'win')) { showToast('ℹ Mục "Windows OS" đã có sẵn trong danh sách!'); return; }
+      bootEntries.unshift({ type: 'win', title: 'Khoi dong Windows OS', path: '/EFI/Microsoft/Boot/bootmgfw.efi', mem: false });
       renderEntries();
       showToast('✓ Đã thêm "Windows OS" lên đầu danh sách!');
     });
 
     document.getElementById('btnApplyMenuDirect').addEventListener('click', () => {
-      if (bootEntries.length === 0) {
-        showToast('⚠ Danh sách đang trống, hãy thêm ít nhất 1 mục!');
-        return;
-      }
+      if (bootEntries.length === 0) { showToast('⚠ Danh sách đang trống!'); return; }
       configModalBackdrop.classList.remove('open');
       openRunModal('menu_only', 'Cập nhật nhanh menu.lst cho Grub4EFI');
+    });
+
+    /* === MỤC 4: KIỂM TRA THẬT + QEMU & XEM TRƯỚC ONLINE === */
+    const uefiViewport = document.getElementById('uefiViewport');
+    const uefiTimerText = document.getElementById('uefiTimerText');
+    const panelSimOnline = document.getElementById('panelSimOnline');
+    const panelTestQemu = document.getElementById('panelTestQemu');
+    const tabSimOnline = document.getElementById('tabSimOnline');
+    const tabTestQemu = document.getElementById('tabTestQemu');
+
+    function stopSimTimer() {
+      if (simInterval) { clearInterval(simInterval); simInterval = null; }
+      uefiTimerText.textContent = simMode === 'menu' ? 'Đã tạm dừng đếm ngược' : 'Nhấn Reboot ảo để quay lại Menu';
+    }
+
+    function renderUefiSim() {
+      if (bootEntries.length === 0) {
+        uefiViewport.innerHTML = `<div class="uefi-console">grub> _\n(menu.lst dang trong — hay them muc o Muc 3)</div>`;
+        return;
+      }
+      if (simSelectedIdx >= bootEntries.length) simSelectedIdx = 0;
+
+      if (simMode === 'menu') {
+        uefiViewport.innerHTML = bootEntries.map((item, idx) => `
+          <div class="uefi-item ${idx === simSelectedIdx ? 'selected' : ''}" onclick="simPick(${idx})">
+            ${idx + 1}. ${escHtml(toAscii(item.title))}
+          </div>
+        `).join('');
+      } else if (simMode === 'edit') {
+        const item = bootEntries[simSelectedIdx];
+        const cmds = getCommandsForEntry(item).join('\n');
+        uefiViewport.innerHTML = `<div class="uefi-console">[Noi dung lenh cua muc ${simSelectedIdx + 1}]\n\ntitle ${simSelectedIdx + 1}. ${escHtml(toAscii(item.title))}\n${escHtml(cmds)}</div>`;
+      } else if (simMode === 'boot') {
+        const item = bootEntries[simSelectedIdx];
+        const cmds = getCommandsForEntry(item);
+        let notes = '';
+        if (item.type === 'wim') {
+          notes = `\n<span class="warn">[LUU Y] File .WIM can co san /EFI/grub/ntloader va initrd.lz1 tren phan vung EFI.</span>`;
+        } else if (item.type === 'vhd' && item.mem) {
+          notes = `\n<span class="warn">[LUU Y] Dang bat --mem cho VHD: can RAM lon hon dung luong file VHD.</span>`;
+        }
+        uefiViewport.innerHTML = `<div class="uefi-console">Booting '${escHtml(toAscii(item.title))}'...\n\n${cmds.map(c => '> ' + escHtml(c)).join('\n')}\n\n[OK] Cu phap menu.lst hop le! Hay chay tab QEMU de kiem tra file that tren may.${notes}</div>`;
+      }
+    }
+
+    window.simPick = function(idx) { stopSimTimer(); simSelectedIdx = idx; renderUefiSim(); };
+
+    function startSimReboot() {
+      stopSimTimer();
+      simSelectedIdx = 0;
+      simMode = 'menu';
+      simCountdown = 5;
+      uefiTimerText.textContent = `Tự động boot sau ${simCountdown}s...`;
+      renderUefiSim();
+      simInterval = setInterval(() => {
+        simCountdown--;
+        if (simCountdown <= 0) {
+          stopSimTimer(); simMode = 'boot'; renderUefiSim();
+        } else {
+          uefiTimerText.textContent = `Tự động boot sau ${simCountdown}s...`;
+        }
+      }, 1000);
+    }
+
+    async function activateQemuTab() {
+      stopSimTimer();
+      tabTestQemu.classList.add('active');
+      tabSimOnline.classList.remove('active');
+      panelTestQemu.style.display = 'block';
+      panelSimOnline.style.display = 'none';
+      const cmd = buildOneLiner('qemu');
+      qemuCmdDisplay.textContent = cmd;
+      try {
+        await navigator.clipboard.writeText(cmd);
+        showToast('✓ Đã tự động Copy lệnh kiểm tra & chạy QEMU!');
+      } catch (_) {}
+    }
+
+    document.getElementById('btnMenuTest').addEventListener('click', () => {
+      testModalBackdrop.classList.add('open');
+      activateQemuTab();
+    });
+
+    document.getElementById('btnCloseTestModal').addEventListener('click', () => {
+      stopSimTimer();
+      testModalBackdrop.classList.remove('open');
+    });
+
+    tabTestQemu.addEventListener('click', activateQemuTab);
+
+    tabSimOnline.addEventListener('click', () => {
+      tabSimOnline.classList.add('active');
+      tabTestQemu.classList.remove('active');
+      panelSimOnline.style.display = 'block';
+      panelTestQemu.style.display = 'none';
+      startSimReboot();
+    });
+
+    document.getElementById('btnCopyQemu').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(qemuCmdDisplay.textContent);
+      showToast('✓ Đã Copy lại lệnh kiểm tra & chạy QEMU!');
+    });
+
+    document.getElementById('simUp').addEventListener('click', () => {
+      if (simMode !== 'menu' || bootEntries.length === 0) return;
+      stopSimTimer();
+      simSelectedIdx = (simSelectedIdx - 1 + bootEntries.length) % bootEntries.length;
+      renderUefiSim();
+    });
+    document.getElementById('simDown').addEventListener('click', () => {
+      if (simMode !== 'menu' || bootEntries.length === 0) return;
+      stopSimTimer();
+      simSelectedIdx = (simSelectedIdx + 1) % bootEntries.length;
+      renderUefiSim();
+    });
+    document.getElementById('simEnter').addEventListener('click', () => { stopSimTimer(); simMode = 'boot'; renderUefiSim(); });
+    document.getElementById('simEdit').addEventListener('click', () => { stopSimTimer(); simMode = (simMode === 'edit') ? 'menu' : 'edit'; renderUefiSim(); });
+    document.getElementById('simReset').addEventListener('click', startSimReboot);
+
+    document.addEventListener('keydown', (e) => {
+      if (!testModalBackdrop.classList.contains('open') || panelSimOnline.style.display === 'none') return;
+      if (e.key === 'ArrowUp') { e.preventDefault(); document.getElementById('simUp').click(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); document.getElementById('simDown').click(); }
+      else if (e.key === 'Enter') { e.preventDefault(); document.getElementById('simEnter').click(); }
+      else if (e.key.toLowerCase() === 'e') { e.preventDefault(); document.getElementById('simEdit').click(); }
+      else if (e.key === 'Escape') { startSimReboot(); }
     });
 
     renderEntries();
