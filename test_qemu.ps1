@@ -14,6 +14,10 @@ if ($PSCommandPath -and (Split-Path $PSCommandPath -Leaf) -like "g4e_test_*.ps1"
     Register-EngineEvent PowerShell.Exiting -Action { Remove-Item $PSCommandPath -Force -ErrorAction SilentlyContinue } | Out-Null
 }
 
+function U([string]$escapedText) {
+    return [System.Text.RegularExpressions.Regex]::Unescape($escapedText)
+}
+
 if (-not ("Win32VolHelper" -as [type])) {
     Add-Type -TypeDefinition @"
 using System;
@@ -175,7 +179,6 @@ function Download-FileFast([string]$url, [string]$outFile) {
         if ($wc) { $wc.Dispose() }
     }
 
-    # Dự phòng bằng Start-Process curl.exe (tránh lỗi 2>&1 NativeCommandError trên PowerShell 5.1 ISE)
     $errLog = Join-Path $env:TEMP "g4e_curl_$(Get-Random).log"
     try {
         $p = Start-Process -FilePath "curl.exe" -ArgumentList "-4 -fL -sS --max-time 60 `"$url`" -o `"$outFile`"" -Wait -NoNewWindow -PassThru -RedirectStandardError $errLog
@@ -311,12 +314,241 @@ function Install-MiniQemuPortable([string]$baseDir, [string]$miniDir) {
     }
 }
 
+function Clear-AllTempFiles([string]$baseDir) {
+    Write-Host "`n[DON DEP] Dang xoa sach toan bo file va thu muc tam..." -ForegroundColor DarkCyan
+    try {
+        if ((Get-Location).Path -like "$baseDir*") {
+            Set-Location "$env:SystemDrive\"
+        }
+    } catch { }
+
+    Start-Sleep -Milliseconds 350
+
+    # Xóa sạch toàn bộ C:\Grub4EFI_QEMU (thử lại tối đa 3 lần phòng trường hợp QEMU vừa thoát chưa nhả khóa file)
+    for ($i = 0; $i -lt 3; $i++) {
+        if (Test-Path $baseDir) {
+            Remove-Item $baseDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        if (-not (Test-Path $baseDir)) { break }
+        Start-Sleep -Milliseconds 400
+    }
+
+    # Xóa toàn bộ file/thư mục tạm sinh ra trong %TEMP% của cả quá trình cài đặt & chạy thử
+    $tempPatterns = @(
+        "$env:TEMP\g4e_dp_*.txt",
+        "$env:TEMP\g4e_curl_*.log",
+        "$env:TEMP\test_mini.7z",
+        "$env:TEMP\grub4efi*",
+        "$env:TEMP\Grub4EFI*"
+    )
+    foreach ($pat in $tempPatterns) {
+        Remove-Item $pat -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    Get-ChildItem -Path $env:TEMP -Filter "g4e_test_*.ps1" -ErrorAction SilentlyContinue | ForEach-Object {
+        if (-not $PSCommandPath -or ($_.FullName -ine $PSCommandPath)) {
+            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $baseGone = -not (Test-Path $baseDir)
+    if ($baseGone) {
+        Write-Host "  [OK] Da xoa sach thu muc $baseDir va toan bo tep tam trong %TEMP%." -ForegroundColor Green
+    } else {
+        Write-Host "  [CANH BAO] Mot vai tep trong $baseDir van dang bi he thong khoa, chua xoa het duoc." -ForegroundColor Yellow
+    }
+    return $baseGone
+}
+
+function Show-ResultDialog {
+    param(
+        [bool]$Success,
+        [bool]$BcdOk,
+        [string]$SecureBootState,
+        [bool]$EfiFilesOk,
+        [int]$MissingMediaCount,
+        [bool]$QemuOk,
+        [bool]$CleanedAll,
+        [string]$ErrorDetail,
+        [string]$GrubGuid
+    )
+
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+        [System.Windows.Forms.Application]::EnableVisualStyles()
+
+        $hasGuid = -not [string]::IsNullOrWhiteSpace($GrubGuid)
+        $formHeight = if ($hasGuid) { 495 } else { 425 }
+
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = U "K\u1EBFt qu\u1EA3 Ki\u1EC3m tra & Ch\u1EA1y th\u1EED Grub4EFI"
+        $form.ClientSize = New-Object System.Drawing.Size(660, $formHeight)
+        $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+        $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
+        $form.MaximizeBox = $false
+        $form.MinimizeBox = $false
+        $form.TopMost = $true
+        $form.BackColor = [System.Drawing.Color]::White
+
+        # Thanh tiêu đề màu nổi bật, chữ rất to và đậm
+        $banner = New-Object System.Windows.Forms.Panel
+        $banner.Dock = [System.Windows.Forms.DockStyle]::Top
+        $banner.Height = 82
+        $banner.BackColor = if ($Success) {
+            [System.Drawing.Color]::FromArgb(5, 150, 105)
+        } else {
+            [System.Drawing.Color]::FromArgb(220, 38, 38)
+        }
+
+        $lblHeader = New-Object System.Windows.Forms.Label
+        $lblHeader.Dock = [System.Windows.Forms.DockStyle]::Fill
+        $lblHeader.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $lblHeader.ForeColor = [System.Drawing.Color]::White
+        $lblHeader.Font = New-Object System.Drawing.Font("Segoe UI", 20, [System.Drawing.FontStyle]::Bold)
+        $lblHeader.Text = if ($Success) {
+            U "\u2713  CH\u1EA0Y TH\u1EEC TH\u00C0NH C\u00D4NG!"
+        } else {
+            U "\u2715  CH\u1EA0Y TH\u1EEC TH\u1EA4T B\u1EA0I!"
+        }
+        $banner.Controls.Add($lblHeader)
+        $form.Controls.Add($banner)
+
+        $lblSub = New-Object System.Windows.Forms.Label
+        $lblSub.Location = New-Object System.Drawing.Point(24, 98)
+        $lblSub.AutoSize = $true
+        $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
+        $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 12.5, [System.Drawing.FontStyle]::Bold)
+        $lblSub.Text = U "T\u00F3m t\u1EAFt k\u1EBFt qu\u1EA3 ki\u1EC3m tra & d\u1ECDn d\u1EB9p:"
+        $form.Controls.Add($lblSub)
+
+        $lines = New-Object System.Collections.Generic.List[string]
+        $lines.Add($(if ($BcdOk) { U "\u2022 M\u1EE5c boot UEFI (BCD): \u0110\u1EA0T (\u0110\u00E3 c\u00F3 Grub4EFI)" } else { U "\u2022 M\u1EE5c boot UEFI (BCD): TH\u1EA4T B\u1EA0I (Ch\u01B0a th\u1EA5y Grub4EFI)" }))
+
+        if ($SecureBootState -eq "off") {
+            $lines.Add((U "\u2022 Secure Boot: \u0110ang T\u1EAET (T\u01B0\u01A1ng th\u00EDch 100%)"))
+        } elseif ($SecureBootState -eq "on") {
+            $lines.Add((U "\u2022 Secure Boot: \u0110ang B\u1EACT (C\u1EA7n t\u1EAFt trong BIOS khi boot th\u1EADt)"))
+        } else {
+            $lines.Add((U "\u2022 Secure Boot: Kh\u00F4ng \u0111\u1ECDc \u0111\u01B0\u1EE3c tr\u1EA1ng th\u00E1i"))
+        }
+
+        $lines.Add($(if ($EfiFilesOk) { U "\u2022 File EFI (grub4efi.efi & menu.lst): \u0110\u1EA6Y \u0110\u1EE6" } else { U "\u2022 File EFI (grub4efi.efi & menu.lst): THI\u1EBEU FILE" }))
+
+        if ($EfiFilesOk) {
+            if ($MissingMediaCount -eq 0) {
+                $lines.Add((U "\u2022 File ISO/WIM/VHD trong menu.lst: \u0110\u1EA7y \u0111\u1EE7 tr\u00EAn \u1ED5 \u0111\u0129a"))
+            } else {
+                $lines.Add(((U "\u2022 File ISO/WIM/VHD trong menu.lst: C\u1EA2NH B\u00C1O thi\u1EBFu file") + " ($MissingMediaCount)"))
+            }
+        }
+
+        $lines.Add($(if ($QemuOk) { U "\u2022 M\u00E1y \u1EA3o QEMU UEFI: \u0110\u00E3 ch\u1EA1y th\u1EED & tho\u00E1t an to\u00E0n" } else { U "\u2022 M\u00E1y \u1EA3o QEMU UEFI: Kh\u00F4ng ch\u1EA1y \u0111\u01B0\u1EE3c / Th\u1EA5t b\u1EA1i" }))
+        $lines.Add($(if ($CleanedAll) { U "\u2022 D\u1ECDn d\u1EB9p t\u1EA1m: \u0110\u00C3 X\u00D3A S\u1EA0CH th\u01B0 m\u1EE5c & file t\u1EA1m!" } else { U "\u2022 D\u1ECDn d\u1EB9p t\u1EA1m: \u0110\u00E3 d\u1ECDn h\u1EA7u h\u1EBFt file t\u1EA1m" }))
+
+        if (-not [string]::IsNullOrWhiteSpace($ErrorDetail)) {
+            $lines.Add("")
+            $lines.Add((U "Chi ti\u1EBFt l\u1ED7i:") + " " + $ErrorDetail)
+        }
+
+        $txtBox = New-Object System.Windows.Forms.TextBox
+        $txtBox.Location = New-Object System.Drawing.Point(24, 130)
+        $txtBox.Size = New-Object System.Drawing.Size(612, 215)
+        $txtBox.Multiline = $true
+        $txtBox.ReadOnly = $true
+        $txtBox.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
+        $txtBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+        $txtBox.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 252)
+        $txtBox.ForeColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
+        $txtBox.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Regular)
+        $txtBox.Text = ($lines -join "`r`n")
+        $txtBox.TabStop = $false
+        $form.Controls.Add($txtBox)
+
+        $btnY = 362
+        if ($hasGuid) {
+            $bootSeqCmd = "bcdedit /set {fwbootmgr} bootsequence $GrubGuid"
+
+            $lblHint = New-Object System.Windows.Forms.Label
+            $lblHint.Location = New-Object System.Drawing.Point(24, 355)
+            $lblHint.AutoSize = $true
+            $lblHint.ForeColor = [System.Drawing.Color]::FromArgb(3, 105, 161)
+            $lblHint.Font = New-Object System.Drawing.Font("Segoe UI", 10.5, [System.Drawing.FontStyle]::Bold)
+            $lblHint.Text = U "L\u1EC7nh test boot 1 l\u1EA7n an to\u00E0n tr\u00EAn m\u00E1y th\u1EADt (kh\u00F4ng \u0111\u1ED5i th\u1EE9 t\u1EF1 boot):"
+            $form.Controls.Add($lblHint)
+
+            $txtCmd = New-Object System.Windows.Forms.TextBox
+            $txtCmd.Location = New-Object System.Drawing.Point(24, 382)
+            $txtCmd.Size = New-Object System.Drawing.Size(612, 32)
+            $txtCmd.ReadOnly = $true
+            $txtCmd.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
+            $txtCmd.ForeColor = [System.Drawing.Color]::FromArgb(56, 189, 248)
+            $txtCmd.Font = New-Object System.Drawing.Font("Consolas", 11, [System.Drawing.FontStyle]::Bold)
+            $txtCmd.Text = $bootSeqCmd
+            $form.Controls.Add($txtCmd)
+
+            $btnY = 430
+
+            $btnCopy = New-Object System.Windows.Forms.Button
+            $btnCopy.Location = New-Object System.Drawing.Point(24, $btnY)
+            $btnCopy.Size = New-Object System.Drawing.Size(250, 46)
+            $btnCopy.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
+            $btnCopy.ForeColor = [System.Drawing.Color]::White
+            $btnCopy.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+            $btnCopy.FlatAppearance.BorderSize = 0
+            $btnCopy.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+            $btnCopy.Text = U "Copy l\u1EC7nh boot 1 l\u1EA7n"
+            $btnCopy.Tag = @{ Cmd = $bootSeqCmd; CopiedText = (U "\u2713 \u0110\u00E3 Copy!") }
+            $btnCopy.Add_Click({
+                param($s, $e)
+                try {
+                    [System.Windows.Forms.Clipboard]::SetText($s.Tag.Cmd)
+                    $s.Text = $s.Tag.CopiedText
+                    $s.BackColor = [System.Drawing.Color]::FromArgb(5, 150, 105)
+                } catch { }
+            })
+            $form.Controls.Add($btnCopy)
+        }
+
+        $btnClose = New-Object System.Windows.Forms.Button
+        $btnClose.Location = New-Object System.Drawing.Point(456, $btnY)
+        $btnClose.Size = New-Object System.Drawing.Size(180, 46)
+        $btnClose.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
+        $btnClose.ForeColor = [System.Drawing.Color]::White
+        $btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $btnClose.FlatAppearance.BorderSize = 0
+        $btnClose.Font = New-Object System.Drawing.Font("Segoe UI", 13, [System.Drawing.FontStyle]::Bold)
+        $btnClose.Text = U "\u0110\u00D3NG"
+        $btnClose.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $form.Controls.Add($btnClose)
+
+        $form.AcceptButton = $btnClose
+        $form.CancelButton = $btnClose
+        $form.Add_Shown({ $form.Activate(); $btnClose.Focus() })
+
+        $form.ShowDialog() | Out-Null
+        $form.Dispose()
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 Write-Host "==============================================================" -ForegroundColor Cyan
 Write-Host "   KIEM TRA KET QUA CAI DAT THUC TE & BOOT THU TRONG QEMU" -ForegroundColor Cyan
 Write-Host "==============================================================" -ForegroundColor Cyan
 
-$passAll = $true
+$bcdOk = $false
+$sbState = "unknown"
+$efiFilesOk = $false
+$missingMedia = 0
+$qemuOk = $false
+$failReason = ""
 $grubGuid = $null
+
+$BaseDir = "C:\Grub4EFI_QEMU"
+$MiniDir = Join-Path $BaseDir "qemu-uefi-mini"
+$EspDir  = Join-Path $BaseDir "esp"
 
 try {
     # === PHẦN 1: KIỂM TRA UEFI NVRAM / BCD THẬT ===
@@ -326,6 +558,7 @@ try {
     $grubBlock = $blocks | Where-Object { $_ -match "\\EFI\\grub\\grub4efi\.efi" -or $_ -match "Grub4EFI" } | Select-Object -First 1
 
     if ($grubBlock) {
+        $bcdOk = $true
         $m = [regex]::Match($grubBlock, "\{[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}")
         if ($m.Success) { $grubGuid = $m.Value }
         Write-Host "  [PASS] Da tim thay muc boot: Grub4EFI ($grubGuid)" -ForegroundColor Green
@@ -340,46 +573,49 @@ try {
         }
     } else {
         Write-Host "  [FAIL] Chua thay muc Grub4EFI trong bcdedit /enum firmware! Hay chay Muc 1 truoc." -ForegroundColor Red
-        $passAll = $false
+        $failReason = "Chua tim thay muc boot Grub4EFI trong UEFI NVRAM (bcdedit). Hay chay Muc 1 truoc."
     }
 
     # === PHẦN 2: KIỂM TRA SECURE BOOT ===
     Write-Host "`n[2/4] Kiem tra trang thai Secure Boot..." -ForegroundColor Yellow
     try {
         if (Confirm-SecureBootUEFI) {
+            $sbState = "on"
             Write-Host "  [CANH BAO] Secure Boot dang BAT! May that se chan Grub4EFI tru khi tat Secure Boot trong BIOS." -ForegroundColor Yellow
         } else {
+            $sbState = "off"
             Write-Host "  [PASS] Secure Boot dang TAT - Tuong thich 100% voi Grub4EFI." -ForegroundColor Green
         }
     } catch {
+        $sbState = "unknown"
         Write-Host "  [INFO] Khong doc duoc trang thai Secure Boot." -ForegroundColor Gray
     }
 
     # === PHẦN 3: KIỂM TRA FILE THẬT TRÊN PHÂN VÙNG EFI & QUÉT FILE ISO/WIM/VHD TRONG MENU.LST ===
     Write-Host "`n[3/4] Kiem tra file that tren phan vung EFI & duong dan trong menu.lst..." -ForegroundColor Yellow
-    $BaseDir = "C:\Grub4EFI_QEMU"
-    $MiniDir = Join-Path $BaseDir "qemu-uefi-mini"
-    $EspDir  = Join-Path $BaseDir "esp"
     [System.IO.Directory]::CreateDirectory($BaseDir) | Out-Null
     if (Test-Path $EspDir) { Remove-Item $EspDir -Recurse -Force }
     [System.IO.Directory]::CreateDirectory("$EspDir\EFI\BOOT") | Out-Null
     [System.IO.Directory]::CreateDirectory("$EspDir\EFI\grub") | Out-Null
 
+    $hasEfiBin = $false
+    $hasMenuFile = $false
     $efi = Mount-ActiveEfi
     try {
         $realEfiFile = "$($efi.Drive)\EFI\grub\grub4efi.efi"
         $realMenuLst = "$($efi.Drive)\EFI\grub\menu.lst"
 
         if ([System.IO.File]::Exists($realEfiFile)) {
+            $hasEfiBin = $true
             $efiKB = [math]::Round((Get-Item $realEfiFile).Length / 1KB, 1)
             Write-Host "  [PASS] Co file that: $realEfiFile ($efiKB KB)" -ForegroundColor Green
             [System.IO.File]::Copy($realEfiFile, "$EspDir\EFI\BOOT\BOOTX64.EFI", $true)
         } else {
             Write-Host "  [FAIL] Khong thay file $realEfiFile!" -ForegroundColor Red
-            $passAll = $false
         }
 
         if ([System.IO.File]::Exists($realMenuLst)) {
+            $hasMenuFile = $true
             $menuContent = [System.IO.File]::ReadAllText($realMenuLst)
             Write-Host "  [PASS] Co file that: $realMenuLst" -ForegroundColor Green
             [System.IO.File]::Copy($realMenuLst, "$EspDir\EFI\grub\menu.lst", $true)
@@ -401,18 +637,23 @@ try {
                 if ($foundAt.Count -gt 0) {
                     Write-Host "  [PASS] File ton tai tren may: $relPath -> Tim thay tai $($foundAt -join ', ')" -ForegroundColor Green
                 } else {
+                    $missingMedia++
                     Write-Host "  [CANH BAO] Khong thay file '$relPath' tren bat ky o dia nao! Khi boot chon muc nay se bao loi 'File not found'." -ForegroundColor Yellow
                 }
             }
         } else {
             Write-Host "  [FAIL] Khong thay file $realMenuLst!" -ForegroundColor Red
-            $passAll = $false
         }
     } finally {
         Dismount-ActiveEfi $efi
     }
 
-    if (-not $passAll) {
+    $efiFilesOk = ($hasEfiBin -and $hasMenuFile)
+    if (-not $efiFilesOk -and [string]::IsNullOrEmpty($failReason)) {
+        $failReason = "Thieu file grub4efi.efi hoac menu.lst tren phan vung EFI."
+    }
+
+    if (-not ($bcdOk -and $efiFilesOk)) {
         Write-Host "`n[KET LUAN] Cau hinh chua day du, hay sua cac muc [FAIL] o tren truoc khi boot thu." -ForegroundColor Red
         return
     }
@@ -422,17 +663,8 @@ try {
     $qemuExe = Find-QemuBinary $MiniDir
 
     if (-not $qemuExe) {
-        try {
-            Install-MiniQemuPortable -baseDir $BaseDir -miniDir $MiniDir
-            $qemuExe = Find-QemuBinary $MiniDir
-        } catch {
-            Write-Host "  [INFO] $($_.Exception.Message)" -ForegroundColor Yellow
-            if ($grubGuid) {
-                Write-Host "`n[GOI Y] Cau hinh EFI da [PASS]. Ban co the test AN TOAN 1 LAN tren may that bang lenh:" -ForegroundColor Cyan
-                Write-Host "  bcdedit /set {fwbootmgr} bootsequence $grubGuid" -ForegroundColor White
-            }
-            return
-        }
+        Install-MiniQemuPortable -baseDir $BaseDir -miniDir $MiniDir
+        $qemuExe = Find-QemuBinary $MiniDir
     }
 
     if (-not $qemuExe) { throw "Khong tim thay qemu-system-x86_64.exe va firmware UEFI sau khi giai nen!" }
@@ -452,18 +684,37 @@ try {
 
     Push-Location $BaseDir
     try {
-        Start-Process -FilePath $qemuExe -ArgumentList ($qemuArgs -join " ") -Wait
+        $qemuProc = Start-Process -FilePath $qemuExe -ArgumentList ($qemuArgs -join " ") -Wait -PassThru
+        if ($qemuProc.ExitCode -eq 0) {
+            $qemuOk = $true
+            Write-Host "`n[HOAN TAT] May ao QEMU da chay va dong binh thuong!" -ForegroundColor Green
+        } else {
+            $failReason = "QEMU thoat voi ma loi: $($qemuProc.ExitCode)"
+            Write-Host "`n[LOI] $failReason" -ForegroundColor Red
+        }
     } finally {
         Pop-Location
     }
-
-    Write-Host "`n[HOAN TAT] Neu man hinh QEMU vua hien du danh sach Menu khong bi loi 'grub>', cai dat da OK!" -ForegroundColor Green
-    if ($grubGuid) {
-        Write-Host "De test tren phan cung that AN TOAN 1 LAN DUY NHAT (khong doi thu tu boot vinh vien), chay:" -ForegroundColor Cyan
-        Write-Host "  bcdedit /set {fwbootmgr} bootsequence $grubGuid" -ForegroundColor White
-    }
 } catch {
-    Write-Host "[LOI] $($_.Exception.Message)" -ForegroundColor Red
-}
+    $failReason = $_.Exception.Message
+    Write-Host "[LOI] $failReason" -ForegroundColor Red
+} finally {
+    # Tự động xóa sạch toàn bộ file & thư mục tạm sau khi chạy thử
+    $cleanedAll = Clear-AllTempFiles -baseDir $BaseDir
+    $overallSuccess = ($bcdOk -and $efiFilesOk -and $qemuOk -and [string]::IsNullOrEmpty($failReason))
 
-Read-Host "`nNhan Enter de hoan tat" | Out-Null
+    $shown = Show-ResultDialog `
+        -Success $overallSuccess `
+        -BcdOk $bcdOk `
+        -SecureBootState $sbState `
+        -EfiFilesOk $efiFilesOk `
+        -MissingMediaCount $missingMedia `
+        -QemuOk $qemuOk `
+        -CleanedAll $cleanedAll `
+        -ErrorDetail $failReason `
+        -GrubGuid $grubGuid
+
+    if (-not $shown) {
+        Read-Host "`nNhan Enter de hoan tat" | Out-Null
+    }
+}
