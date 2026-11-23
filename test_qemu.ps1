@@ -324,7 +324,6 @@ function Clear-AllTempFiles([string]$baseDir) {
 
     Start-Sleep -Milliseconds 350
 
-    # Xóa sạch toàn bộ C:\Grub4EFI_QEMU (thử lại tối đa 3 lần phòng trường hợp QEMU vừa thoát chưa nhả khóa file)
     for ($i = 0; $i -lt 3; $i++) {
         if (Test-Path $baseDir) {
             Remove-Item $baseDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -333,10 +332,10 @@ function Clear-AllTempFiles([string]$baseDir) {
         Start-Sleep -Milliseconds 400
     }
 
-    # Xóa toàn bộ file/thư mục tạm sinh ra trong %TEMP% của cả quá trình cài đặt & chạy thử
     $tempPatterns = @(
         "$env:TEMP\g4e_dp_*.txt",
         "$env:TEMP\g4e_curl_*.log",
+        "$env:TEMP\g4e_qemu_*.log",
         "$env:TEMP\test_mini.7z",
         "$env:TEMP\grub4efi*",
         "$env:TEMP\Grub4EFI*"
@@ -362,7 +361,7 @@ function Clear-AllTempFiles([string]$baseDir) {
 
 function Show-ResultDialog {
     param(
-        [bool]$Success,
+        [string]$StatusMode, # "ok" | "warn" | "fail"
         [bool]$BcdOk,
         [string]$SecureBootState,
         [bool]$EfiFilesOk,
@@ -379,11 +378,12 @@ function Show-ResultDialog {
         [System.Windows.Forms.Application]::EnableVisualStyles()
 
         $hasGuid = -not [string]::IsNullOrWhiteSpace($GrubGuid)
-        $formHeight = if ($hasGuid) { 495 } else { 425 }
+        $formHeight = if ($hasGuid) { 525 } else { 445 }
 
         $form = New-Object System.Windows.Forms.Form
         $form.Text = U "K\u1EBFt qu\u1EA3 Ki\u1EC3m tra & Ch\u1EA1y th\u1EED Grub4EFI"
-        $form.ClientSize = New-Object System.Drawing.Size(660, $formHeight)
+        $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+        $form.ClientSize = New-Object System.Drawing.Size(760, $formHeight)
         $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
         $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
         $form.MaximizeBox = $false
@@ -391,34 +391,36 @@ function Show-ResultDialog {
         $form.TopMost = $true
         $form.BackColor = [System.Drawing.Color]::White
 
-        # Thanh tiêu đề màu nổi bật, chữ rất to và đậm
         $banner = New-Object System.Windows.Forms.Panel
         $banner.Dock = [System.Windows.Forms.DockStyle]::Top
-        $banner.Height = 82
-        $banner.BackColor = if ($Success) {
-            [System.Drawing.Color]::FromArgb(5, 150, 105)
-        } else {
-            [System.Drawing.Color]::FromArgb(220, 38, 38)
+        $banner.Height = 86
+        $banner.BackColor = switch ($StatusMode) {
+            "ok"   { [System.Drawing.Color]::FromArgb(5, 150, 105) }
+            "warn" { [System.Drawing.Color]::FromArgb(217, 119, 6) }
+            default { [System.Drawing.Color]::FromArgb(220, 38, 38) }
         }
 
         $lblHeader = New-Object System.Windows.Forms.Label
         $lblHeader.Dock = [System.Windows.Forms.DockStyle]::Fill
+        $lblHeader.UseMnemonic = $false
         $lblHeader.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
         $lblHeader.ForeColor = [System.Drawing.Color]::White
-        $lblHeader.Font = New-Object System.Drawing.Font("Segoe UI", 20, [System.Drawing.FontStyle]::Bold)
-        $lblHeader.Text = if ($Success) {
-            U "\u2713  CH\u1EA0Y TH\u1EEC TH\u00C0NH C\u00D4NG!"
-        } else {
-            U "\u2715  CH\u1EA0Y TH\u1EEC TH\u1EA4T B\u1EA0I!"
+        $headerSize = if ($StatusMode -eq "warn") { 17 } else { 20 }
+        $lblHeader.Font = New-Object System.Drawing.Font("Segoe UI", $headerSize, [System.Drawing.FontStyle]::Bold)
+        $lblHeader.Text = switch ($StatusMode) {
+            "ok"   { U "\u2713  CH\u1EA0Y TH\u1EEC TH\u00C0NH C\u00D4NG!" }
+            "warn" { U "\u26A0  C\u1EA4U H\u00CCNH TH\u1EACT \u0110\u1EA0T (RI\u00CANG QEMU L\u1ED6I)" }
+            default { U "\u2715  CH\u1EA0Y TH\u1EEC TH\u1EA4T B\u1EA0I!" }
         }
         $banner.Controls.Add($lblHeader)
         $form.Controls.Add($banner)
 
         $lblSub = New-Object System.Windows.Forms.Label
-        $lblSub.Location = New-Object System.Drawing.Point(24, 98)
-        $lblSub.AutoSize = $true
+        $lblSub.Location = New-Object System.Drawing.Point(24, 102)
+        $lblSub.Size = New-Object System.Drawing.Size(712, 28)
+        $lblSub.UseMnemonic = $false
         $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
-        $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 12.5, [System.Drawing.FontStyle]::Bold)
+        $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
         $lblSub.Text = U "T\u00F3m t\u1EAFt k\u1EBFt qu\u1EA3 ki\u1EC3m tra & d\u1ECDn d\u1EB9p:"
         $form.Controls.Add($lblSub)
 
@@ -452,34 +454,35 @@ function Show-ResultDialog {
         }
 
         $txtBox = New-Object System.Windows.Forms.TextBox
-        $txtBox.Location = New-Object System.Drawing.Point(24, 130)
-        $txtBox.Size = New-Object System.Drawing.Size(612, 215)
+        $txtBox.Location = New-Object System.Drawing.Point(24, 136)
+        $txtBox.Size = New-Object System.Drawing.Size(712, 225)
         $txtBox.Multiline = $true
         $txtBox.ReadOnly = $true
         $txtBox.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
         $txtBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
         $txtBox.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 252)
         $txtBox.ForeColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
-        $txtBox.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Regular)
+        $txtBox.Font = New-Object System.Drawing.Font("Segoe UI", 11.5, [System.Drawing.FontStyle]::Regular)
         $txtBox.Text = ($lines -join "`r`n")
         $txtBox.TabStop = $false
         $form.Controls.Add($txtBox)
 
-        $btnY = 362
+        $btnY = 380
         if ($hasGuid) {
             $bootSeqCmd = "bcdedit /set {fwbootmgr} bootsequence $GrubGuid"
 
             $lblHint = New-Object System.Windows.Forms.Label
-            $lblHint.Location = New-Object System.Drawing.Point(24, 355)
-            $lblHint.AutoSize = $true
+            $lblHint.Location = New-Object System.Drawing.Point(24, 374)
+            $lblHint.Size = New-Object System.Drawing.Size(712, 24)
+            $lblHint.UseMnemonic = $false
             $lblHint.ForeColor = [System.Drawing.Color]::FromArgb(3, 105, 161)
             $lblHint.Font = New-Object System.Drawing.Font("Segoe UI", 10.5, [System.Drawing.FontStyle]::Bold)
             $lblHint.Text = U "L\u1EC7nh test boot 1 l\u1EA7n an to\u00E0n tr\u00EAn m\u00E1y th\u1EADt (kh\u00F4ng \u0111\u1ED5i th\u1EE9 t\u1EF1 boot):"
             $form.Controls.Add($lblHint)
 
             $txtCmd = New-Object System.Windows.Forms.TextBox
-            $txtCmd.Location = New-Object System.Drawing.Point(24, 382)
-            $txtCmd.Size = New-Object System.Drawing.Size(612, 32)
+            $txtCmd.Location = New-Object System.Drawing.Point(24, 402)
+            $txtCmd.Size = New-Object System.Drawing.Size(712, 34)
             $txtCmd.ReadOnly = $true
             $txtCmd.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
             $txtCmd.ForeColor = [System.Drawing.Color]::FromArgb(56, 189, 248)
@@ -487,11 +490,12 @@ function Show-ResultDialog {
             $txtCmd.Text = $bootSeqCmd
             $form.Controls.Add($txtCmd)
 
-            $btnY = 430
+            $btnY = 454
 
             $btnCopy = New-Object System.Windows.Forms.Button
             $btnCopy.Location = New-Object System.Drawing.Point(24, $btnY)
-            $btnCopy.Size = New-Object System.Drawing.Size(250, 46)
+            $btnCopy.Size = New-Object System.Drawing.Size(290, 48)
+            $btnCopy.UseMnemonic = $false
             $btnCopy.BackColor = [System.Drawing.Color]::FromArgb(37, 99, 235)
             $btnCopy.ForeColor = [System.Drawing.Color]::White
             $btnCopy.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -511,8 +515,8 @@ function Show-ResultDialog {
         }
 
         $btnClose = New-Object System.Windows.Forms.Button
-        $btnClose.Location = New-Object System.Drawing.Point(456, $btnY)
-        $btnClose.Size = New-Object System.Drawing.Size(180, 46)
+        $btnClose.Location = New-Object System.Drawing.Point(556, $btnY)
+        $btnClose.Size = New-Object System.Drawing.Size(180, 48)
         $btnClose.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
         $btnClose.ForeColor = [System.Drawing.Color]::White
         $btnClose.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
@@ -669,12 +673,14 @@ try {
 
     if (-not $qemuExe) { throw "Khong tim thay qemu-system-x86_64.exe va firmware UEFI sau khi giai nen!" }
     $ovmfPath = Find-OvmfFirmware $qemuExe
+    $fwDir = Split-Path $ovmfPath -Parent
 
     Write-Host "  [OK] Su dung QEMU: $qemuExe" -ForegroundColor Green
     Write-Host "  [DANG MO QEMU] Hien thi chinh xac giao dien Grub4EFI & menu.lst that cua may ban..." -ForegroundColor Magenta
 
     $qemuArgs = @(
         "-name", "`"Test Ket Qua Grub4EFI That (QEMU UEFI)`"",
+        "-L", "`"$fwDir`"",
         "-machine", "q35",
         "-m", "1024M",
         "-bios", "`"$ovmfPath`"",
@@ -682,29 +688,41 @@ try {
         "-net", "none"
     )
 
-    Push-Location $BaseDir
+    $qemuErrLog = Join-Path $env:TEMP "g4e_qemu_$(Get-Random).log"
     try {
-        $qemuProc = Start-Process -FilePath $qemuExe -ArgumentList ($qemuArgs -join " ") -Wait -PassThru
+        $qemuProc = Start-Process -FilePath $qemuExe -ArgumentList ($qemuArgs -join " ") -WorkingDirectory $BaseDir -NoNewWindow -RedirectStandardError $qemuErrLog -Wait -PassThru
+        $qErrText = if (Test-Path $qemuErrLog) { ([System.IO.File]::ReadAllText($qemuErrLog)).Trim() } else { "" }
+
         if ($qemuProc.ExitCode -eq 0) {
             $qemuOk = $true
             Write-Host "`n[HOAN TAT] May ao QEMU da chay va dong binh thuong!" -ForegroundColor Green
         } else {
-            $failReason = "QEMU thoat voi ma loi: $($qemuProc.ExitCode)"
+            $failReason = if ($qErrText) {
+                "QEMU thoat voi ma loi $($qemuProc.ExitCode): $qErrText"
+            } else {
+                "QEMU thoat voi ma loi: $($qemuProc.ExitCode)"
+            }
             Write-Host "`n[LOI] $failReason" -ForegroundColor Red
         }
     } finally {
-        Pop-Location
+        Remove-Item $qemuErrLog -Force -ErrorAction SilentlyContinue
     }
 } catch {
     $failReason = $_.Exception.Message
     Write-Host "[LOI] $failReason" -ForegroundColor Red
 } finally {
-    # Tự động xóa sạch toàn bộ file & thư mục tạm sau khi chạy thử
     $cleanedAll = Clear-AllTempFiles -baseDir $BaseDir
-    $overallSuccess = ($bcdOk -and $efiFilesOk -and $qemuOk -and [string]::IsNullOrEmpty($failReason))
+
+    $statusMode = if ($bcdOk -and $efiFilesOk -and $qemuOk -and [string]::IsNullOrEmpty($failReason)) {
+        "ok"
+    } elseif ($bcdOk -and $efiFilesOk) {
+        "warn"
+    } else {
+        "fail"
+    }
 
     $shown = Show-ResultDialog `
-        -Success $overallSuccess `
+        -StatusMode $statusMode `
         -BcdOk $bcdOk `
         -SecureBootState $sbState `
         -EfiFilesOk $efiFilesOk `
