@@ -194,7 +194,7 @@
       font-family: 'Consolas', 'Courier New', monospace;
       font-size: 12.5px; line-height: 1.55;
       white-space: pre; overflow: auto;
-      min-height: 280px; max-height: 350px;
+      min-height: 310px; max-height: 390px;
       margin: 0;
     }
 
@@ -228,9 +228,23 @@
     .mem-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #78350f; font-weight: 600; }
     .wim-note { display: none; margin-top: 6px; font-size: 11.5px; color: #b45309; }
 
+    .sync-box {
+      background: #ecfdf5; border: 1.5px solid #a7f3d0;
+      border-radius: 12px; padding: 10px 12px; margin-bottom: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+      font-size: 12.5px; color: #065f46; font-weight: 600;
+    }
+    .sync-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .sync-row label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+    .sync-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: #059669; }
+    .sync-row select {
+      padding: 4px 8px; border-radius: 8px; border: 1.5px solid #6ee7b7;
+      background: #ffffff; color: #064e3b; font-size: 12px; font-weight: 700;
+    }
+
     .item-box {
       background: #ffffff; border: 1.5px solid #e2e8f0;
-      border-radius: 14px; padding: 10px; max-height: 195px; overflow-y: auto; margin-bottom: 14px;
+      border-radius: 14px; padding: 10px; max-height: 195px; overflow-y: auto; margin-bottom: 12px;
     }
     .boot-entry {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -421,7 +435,7 @@
           <input type="file" id="hiddenFilePicker" accept=".iso,.wim,.vhd,.vhdx" style="display:none" />
 
           <div class="file-confirm" id="fileConfirmBox">
-            <label>Đường dẫn tương đối trên phân vùng (Grub4EFI tự quét mọi ổ đĩa):</label>
+            <label>Đường dẫn tương đối trên phân vùng (tự phân loại vào /ISO/, /WIM/, /VHD/):</label>
             <div class="file-row">
               <input type="text" id="detectedRelPath" placeholder="/ISO/WinPE.iso" />
               <button class="btn-add-item" id="btnConfirmAddFile">+ Thêm</button>
@@ -437,7 +451,24 @@
 
           <div class="item-box" id="entryListContainer"></div>
 
-          <button class="btn-save-menu" id="btnApplyMenuDirect">⚡ Lưu & Lấy lệnh cập nhật menu.lst</button>
+          <div class="sync-box">
+            <div class="sync-row">
+              <label for="chkAutoSyncMedia">
+                <input type="checkbox" id="chkAutoSyncMedia" checked />
+                Tự tạo 3 thư mục <code>\ISO</code>, <code>\WIM</code>, <code>\VHD</code> &amp; copy file đã chọn sang
+              </label>
+              <select id="selDataDrive" title="Chọn ổ đĩa chứa thư mục ISO, WIM, VHD">
+                <option value="AUTO" selected>Ổ đích: Tự động (ưu tiên ổ dữ liệu)</option>
+                <option value="C:">Ổ đích: C:\</option>
+                <option value="D:">Ổ đích: D:\</option>
+                <option value="E:">Ổ đích: E:\</option>
+                <option value="F:">Ổ đích: F:\</option>
+                <option value="G:">Ổ đích: G:\</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn-save-menu" id="btnApplyMenuDirect">⚡ Lưu &amp; Lấy lệnh cập nhật menu.lst</button>
         </div>
 
         <div class="sub-frame">
@@ -468,7 +499,7 @@
         <div class="check-pills">
           <div class="check-pill">1. Kiểm tra UEFI NVRAM / BCD</div>
           <div class="check-pill">2. Kiểm tra Secure Boot</div>
-          <div class="check-pill">3. Quét file ISO/VHD trong menu.lst</div>
+          <div class="check-pill">3. Quét file ISO/WIM/VHD trong menu.lst</div>
           <div class="check-pill">4. Boot thử file EFI thật trên QEMU</div>
         </div>
         <div class="step-guide">
@@ -524,6 +555,8 @@
     const repoSlugInput = document.getElementById('repoSlugInput');
     const bootFirstRow = document.getElementById('bootFirstRow');
     const chkBootFirst = document.getElementById('chkBootFirst');
+    const chkAutoSyncMedia = document.getElementById('chkAutoSyncMedia');
+    const selDataDrive = document.getElementById('selDataDrive');
     const hiddenFilePicker = document.getElementById('hiddenFilePicker');
     const fileConfirmBox = document.getElementById('fileConfirmBox');
     const detectedRelPath = document.getElementById('detectedRelPath');
@@ -637,22 +670,27 @@
       const slug = repoSlugInput.value.trim() || 'trongnguyen2022/Menu_Boot_Windows_Manager';
       const baseUrl = `https://raw.githubusercontent.com/${slug}/main`;
 
-      if (mode === 'remove') return `irm ${baseUrl}/remove.ps1 | iex`;
-      if (mode === 'qemu') return `irm ${baseUrl}/test_qemu.ps1 | iex`;
+      if (mode === 'remove') return `irm "${baseUrl}/remove.ps1?t=$(Get-Random)" | iex`;
+      if (mode === 'qemu') return `irm "${baseUrl}/test_qemu.ps1?t=$(Get-Random)" | iex`;
 
       const b64 = buildMenuLstB64();
+      const hasMedia = bootEntries.some(x => x.type === 'iso' || x.type === 'wim' || x.type === 'vhd');
+      const shouldSync = chkAutoSyncMedia.checked && hasMedia;
+      const syncCmd = shouldSync ? `irm "${baseUrl}/sync_media.ps1?t=$(Get-Random)" | iex; ` : '';
+
       if (mode === 'menu_only') {
-        return `$env:G4E_ONLY_MENU="1"; $env:G4E_MENU="${b64}"; irm ${baseUrl}/install.ps1 | iex`;
+        const drvPart = shouldSync ? `$env:G4E_DATA_DRIVE="${selDataDrive.value}"; ` : '';
+        return `$env:G4E_ONLY_MENU="1"; ${drvPart}$env:G4E_MENU="${b64}"; ${syncCmd}irm "${baseUrl}/install.ps1?t=$(Get-Random)" | iex`;
       }
 
       const envParts = [];
       if (!chkBootFirst.checked) envParts.push(`$env:G4E_BOOT_FIRST="0"`);
       const isDefaultOnly = bootEntries.length === 1 && bootEntries[0].type === 'win';
       if (!isDefaultOnly) envParts.push(`$env:G4E_MENU="${b64}"`);
+      if (shouldSync) envParts.push(`$env:G4E_DATA_DRIVE="${selDataDrive.value}"`);
 
-      return envParts.length > 0
-        ? `${envParts.join('; ')}; irm ${baseUrl}/install.ps1 | iex`
-        : `irm ${baseUrl}/install.ps1 | iex`;
+      const prefix = envParts.length > 0 ? `${envParts.join('; ')}; ` : '';
+      return `${prefix}${syncCmd}irm "${baseUrl}/install.ps1?t=$(Get-Random)" | iex`;
     }
 
     async function openRunModal(mode, titleText) {
@@ -668,7 +706,7 @@
     document.getElementById('btnMenuInstall').addEventListener('click', () => openRunModal('install', '1/ Cài đặt Grub4EFI vào Menu Boot'));
     document.getElementById('btnMenuRemove').addEventListener('click', () => openRunModal('remove', '2/ Gỡ bỏ Grub4EFI khỏi Menu Boot'));
 
-    [repoSlugInput, chkBootFirst].forEach(el => {
+    [repoSlugInput, chkBootFirst, chkAutoSyncMedia, selDataDrive].forEach(el => {
       const refresh = () => {
         oneLinerDisplay.textContent = buildOneLiner(activeAction);
         qemuCmdDisplay.textContent = buildOneLiner('qemu');
@@ -732,7 +770,7 @@
       if (!file) return;
       const ext = file.name.split('.').pop().toLowerCase();
       pendingFileType = (ext === 'wim') ? 'wim' : ((ext === 'vhd' || ext === 'vhdx') ? 'vhd' : 'iso');
-      const folder = pendingFileType === 'wim' ? '/sources/' : (pendingFileType === 'vhd' ? '/VHD/' : '/ISO/');
+      const folder = pendingFileType === 'wim' ? '/WIM/' : (pendingFileType === 'vhd' ? '/VHD/' : '/ISO/');
       detectedRelPath.value = `${folder}${file.name}`;
       chkMapMem.checked = (pendingFileType === 'iso');
       memCheckWrap.style.display = (pendingFileType === 'wim') ? 'none' : 'flex';
@@ -745,6 +783,10 @@
       let relPath = detectedRelPath.value.trim().replace(/\\/g, '/');
       if (!relPath) return;
       if (!relPath.startsWith('/')) relPath = '/' + relPath;
+      if (bootEntries.some(x => x.path.toLowerCase() === relPath.toLowerCase())) {
+        showToast(`ℹ Đường dẫn "${relPath}" đã có sẵn trong danh sách!`);
+        return;
+      }
       const fileName = relPath.split('/').pop();
       bootEntries.push({
         type: pendingFileType,
@@ -754,7 +796,7 @@
       });
       fileConfirmBox.classList.remove('show');
       renderEntries();
-      showToast(`✓ Đã thêm "${fileName}" vào menu.lst`);
+      showToast(`✓ Đã thêm "${fileName}" vào ${relPath}`);
     });
 
     document.getElementById('btnOptWin').addEventListener('click', () => {
@@ -767,7 +809,7 @@
     document.getElementById('btnApplyMenuDirect').addEventListener('click', () => {
       if (bootEntries.length === 0) { showToast('⚠ Danh sách đang trống!'); return; }
       configModalBackdrop.classList.remove('open');
-      openRunModal('menu_only', 'Cập nhật nhanh menu.lst cho Grub4EFI');
+      openRunModal('menu_only', 'Cập nhật menu.lst & Đồng bộ ISO/WIM/VHD');
     });
 
     /* === MỤC 4: KIỂM TRA THẬT + QEMU & XEM TRƯỚC ONLINE === */

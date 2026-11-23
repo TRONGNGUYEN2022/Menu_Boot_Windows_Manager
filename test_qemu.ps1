@@ -123,24 +123,8 @@ function Dismount-ActiveEfi($efiInfo) {
     }
 }
 
-function Find-QemuBinary([string]$miniDir) {
-    $candidates = @(
-        (Join-Path $miniDir "qemu-system-x86_64.exe"),
-        "C:\Grub4EFI_QEMU\qemu-uefi-mini\qemu-system-x86_64.exe",
-        "C:\Program Files\qemu\qemu-system-x86_64.exe",
-        "C:\Program Files (x86)\qemu\qemu-system-x86_64.exe",
-        "C:\Tools\qemu\qemu-system-x86_64.exe",
-        "$env:LOCALAPPDATA\Programs\qemu\qemu-system-x86_64.exe"
-    )
-    $found = ($candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1)
-    if ($found) { return $found }
-
-    $cmd = Get-Command "qemu-system-x86_64.exe" -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    return $null
-}
-
 function Find-OvmfFirmware([string]$qemuExe) {
+    if (-not $qemuExe) { return $null }
     $qemuDir = Split-Path $qemuExe -Parent
     $directCandidates = @(
         (Join-Path $qemuDir "share\edk2-x86_64-code.fd"),
@@ -155,6 +139,67 @@ function Find-OvmfFirmware([string]$qemuExe) {
     return $null
 }
 
+function Find-QemuBinary([string]$miniDir) {
+    $candidates = @(
+        (Join-Path $miniDir "qemu-system-x86_64.exe"),
+        "C:\Grub4EFI_QEMU\qemu-uefi-mini\qemu-system-x86_64.exe",
+        "C:\Program Files\qemu\qemu-system-x86_64.exe",
+        "C:\Program Files (x86)\qemu\qemu-system-x86_64.exe",
+        "C:\Tools\qemu\qemu-system-x86_64.exe",
+        "$env:LOCALAPPDATA\Programs\qemu\qemu-system-x86_64.exe"
+    )
+    $cmd = Get-Command "qemu-system-x86_64.exe" -ErrorAction SilentlyContinue
+    if ($cmd) { $candidates += $cmd.Source }
+
+    foreach ($c in ($candidates | Select-Object -Unique)) {
+        if ($c -and (Test-Path $c) -and (Find-OvmfFirmware $c)) {
+            return $c
+        }
+    }
+    return $null
+}
+
+function Download-FileFast([string]$url, [string]$outFile) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $wcErr = ""
+    $wc = $null
+    try {
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add("User-Agent", "Grub4EFI-Boot-Studio/2.0")
+        $wc.DownloadFile($url, $outFile)
+        if ((Test-Path $outFile) -and ((Get-Item $outFile).Length -gt 0)) { return }
+    } catch {
+        $wcErr = $_.Exception.Message
+        if ($_.Exception.InnerException) { $wcErr += " | " + $_.Exception.InnerException.Message }
+    } finally {
+        if ($wc) { $wc.Dispose() }
+    }
+
+    # Dự phòng bằng Start-Process curl.exe (tránh lỗi 2>&1 NativeCommandError trên PowerShell 5.1 ISE)
+    $errLog = Join-Path $env:TEMP "g4e_curl_$(Get-Random).log"
+    try {
+        $p = Start-Process -FilePath "curl.exe" -ArgumentList "-4 -fL -sS --max-time 60 `"$url`" -o `"$outFile`"" -Wait -NoNewWindow -PassThru -RedirectStandardError $errLog
+        if ($p.ExitCode -eq 0 -and (Test-Path $outFile) -and ((Get-Item $outFile).Length -gt 0)) { return }
+        $cErr = if (Test-Path $errLog) { ([System.IO.File]::ReadAllText($errLog)).Trim() } else { "curl exit $($p.ExitCode)" }
+        throw "WebClient: $wcErr || curl: $cErr"
+    } finally {
+        Remove-Item $errLog -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-SevenZipHeader([string]$filePath) {
+    if (-not (Test-Path $filePath)) { return $false }
+    if ((Get-Item $filePath).Length -lt 1MB) { return $false }
+    $fs = [System.IO.File]::OpenRead($filePath)
+    try {
+        $hdr = New-Object byte[] 6
+        if ($fs.Read($hdr, 0, 6) -lt 6) { return $false }
+        return ($hdr[0] -eq 0x37 -and $hdr[1] -eq 0x7A -and $hdr[2] -eq 0xBC -and $hdr[3] -eq 0xAF -and $hdr[4] -eq 0x27 -and $hdr[5] -eq 0x1C)
+    } finally {
+        $fs.Dispose()
+    }
+}
+
 function Get-SevenZipTool([string]$workDir) {
     $existing = @(
         "$env:ProgramFiles\7-Zip\7z.exe",
@@ -166,11 +211,8 @@ function Get-SevenZipTool([string]$workDir) {
 
     $zr = Join-Path $workDir "7zr.exe"
     if (-not (Test-Path $zr)) {
-        & curl.exe -4 -fsSL "https://www.7-zip.org/a/7zr.exe" -o "$zr"
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $zr)) {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            Invoke-WebRequest -Uri "https://www.7-zip.org/a/7zr.exe" -OutFile $zr -UseBasicParsing
-        }
+        Write-Host "  [DANG TAI] Dang tai cong cu giai nen 7zr.exe..." -ForegroundColor Cyan
+        Download-FileFast -url "https://www.7-zip.org/a/7zr.exe" -outFile $zr
     }
     return $zr
 }
@@ -182,20 +224,21 @@ function Find-LocalMiniArchive([string]$baseDir) {
         (Join-Path $baseDir "qemu-uefi-mini.7z"),
         (Join-Path $dl "qemu-uefi-mini.7z"),
         (Join-Path $dt "qemu-uefi-mini.7z"),
+        "D:\qemu-uefi-mini.7z",
         "E:\qemu-uefi-mini.7z",
         "F:\qemu-uefi-mini.7z"
     )
-    return ($paths | Where-Object { $_ -and (Test-Path $_) -and ((Get-Item $_).Length -gt 1MB) } | Select-Object -First 1)
+    return ($paths | Where-Object { $_ -and (Test-SevenZipHeader $_) } | Select-Object -First 1)
 }
 
 function Resolve-MiniReleaseAsset {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $headers = @{ "User-Agent" = "Grub4EFI-Boot-Studio" }
+    $headers = @{ "User-Agent" = "Grub4EFI-Boot-Studio/2.0" }
     try {
-        $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/trongnguyen2022/Menu_Boot_Windows_Manager/releases?per_page=15" -Headers $headers -TimeoutSec 8
+        $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/trongnguyen2022/Menu_Boot_Windows_Manager/releases?per_page=15" -Headers $headers -TimeoutSec 10
         foreach ($r in @($rels)) {
             foreach ($a in @($r.assets)) {
-                if ($a.name -match "\.(7z|zip)$" -and ($a.name -match "qemu|mini" -or $r.tag_name -match "qemu|mini")) {
+                if ($a.name -match "\.7z$" -and ($a.name -match "qemu|mini" -or $r.tag_name -match "qemu|mini")) {
                     return @{ Url = $a.browser_download_url; Name = $a.name; Tag = $r.tag_name }
                 }
             }
@@ -209,13 +252,19 @@ function Resolve-MiniReleaseAsset {
 }
 
 function Expand-MiniArchive([string]$archivePath, [string]$miniDir, [string]$baseDir) {
+    if (-not (Test-SevenZipHeader $archivePath)) {
+        throw "Tep $(Split-Path $archivePath -Leaf) bi hong hoac khong phai file .7z hop le!"
+    }
+    if (Test-Path $miniDir) { Remove-Item $miniDir -Recurse -Force -ErrorAction SilentlyContinue }
     [System.IO.Directory]::CreateDirectory($miniDir) | Out-Null
+
     $sevenZip = Get-SevenZipTool $baseDir
     Write-Host "  [DANG GIAI NEN] Dang giai nen $(Split-Path $archivePath -Leaf)..." -ForegroundColor Cyan
     $zProc = Start-Process -FilePath $sevenZip -ArgumentList "x `"$archivePath`" `"-o$miniDir`" -y" -Wait -NoNewWindow -PassThru
     if ($zProc.ExitCode -ne 0) {
-        throw "Giai nen $(Split-Path $archivePath -Leaf) that bai (Ma loi: $($zProc.ExitCode))."
+        throw "Giai nen $(Split-Path $archivePath -Leaf) that bai (Ma loi 7-Zip: $($zProc.ExitCode))."
     }
+
     $nestedExe = Get-ChildItem -Path $miniDir -Recurse -Filter "qemu-system-x86_64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($nestedExe -and ((Split-Path $nestedExe.FullName -Parent) -ne $miniDir)) {
         $subRoot = Split-Path $nestedExe.FullName -Parent
@@ -226,45 +275,39 @@ function Expand-MiniArchive([string]$archivePath, [string]$miniDir, [string]$bas
 function Install-MiniQemuPortable([string]$baseDir, [string]$miniDir) {
     $localArch = Find-LocalMiniArchive $baseDir
     if ($localArch) {
-        Write-Host "  [OK] Tim thay goi Mini co san tren may: $localArch" -ForegroundColor Green
-        try {
-            Expand-MiniArchive -archivePath $localArch -miniDir $miniDir -baseDir $baseDir
-            return
-        } finally {
-            Remove-Item $localArch -Force -ErrorAction SilentlyContinue
-        }
+        Write-Host "  [OK] Tim thay goi Mini hop le co san tren may: $localArch" -ForegroundColor Green
+        Expand-MiniArchive -archivePath $localArch -miniDir $miniDir -baseDir $baseDir
+        return
     }
 
     $assetInfo = Resolve-MiniReleaseAsset
-    $archivePath = Join-Path $baseDir $assetInfo.Name
-    Write-Host "  [DANG TAI] Dang tai $($assetInfo.Name) (tag: $($assetInfo.Tag)) qua curl.exe..." -ForegroundColor Yellow
-    $dlErr = (& curl.exe -4 -fL --max-time 25 --progress-bar "$($assetInfo.Url)" -o "$archivePath" 2>&1 | Out-String).Trim()
+    $tempArchive = Join-Path $baseDir "qemu-uefi-mini_dl.7z"
+    Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue
 
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $archivePath) -or ((Get-Item $archivePath).Length -lt 1MB)) {
-        if (Test-Path $archivePath) { Remove-Item $archivePath -Force -ErrorAction SilentlyContinue }
+    Write-Host "  [DANG TAI] Dang tai $($assetInfo.Name) (tag: $($assetInfo.Tag))..." -ForegroundColor Yellow
+    try {
+        Download-FileFast -url $assetInfo.Url -outFile $tempArchive
+        if (-not (Test-SevenZipHeader $tempArchive)) {
+            throw "Tep tai ve khong dung dinh dang 7z (co the link bi chuyen huong HTML)."
+        }
+        Expand-MiniArchive -archivePath $tempArchive -miniDir $miniDir -baseDir $baseDir
+        Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue
+        return
+    } catch {
+        Remove-Item $tempArchive -Force -ErrorAction SilentlyContinue
         $dlFolder = [Environment]::GetFolderPath("UserProfile") + "\Downloads"
-        Write-Host "  [THONG BAO] curl.exe khong ket noi duoc GitHub ($dlErr)." -ForegroundColor Yellow
-        Write-Host "  Ban hay tai file qemu-uefi-mini.7z bang trinh duyet roi dat vao $baseDir hoac $dlFolder" -ForegroundColor Cyan
+        Write-Host "  [CANH BAO] Khong tai tu dong duoc goi Mini: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "  Ban hay tai thu cong '$($assetInfo.Name)' bang trinh duyet vao $dlFolder hoac $baseDir" -ForegroundColor Cyan
         Start-Process "explorer.exe" $baseDir -ErrorAction SilentlyContinue
-        Start-Process "explorer.exe" $dlFolder -ErrorAction SilentlyContinue
-        Read-Host "  Sau khi dat xong file qemu-uefi-mini.7z, nhan Enter de tiep tuc (hoac Ctrl+C de huy)" | Out-Null
+        $ans = Read-Host "  Sau khi tai xong nhan Enter de tiep tuc (hoac go N de bo qua QEMU)"
+        if ($ans -match "^[Nn]") { throw "Nguoi dung bo qua khoi chay QEMU." }
 
         $localArch2 = Find-LocalMiniArchive $baseDir
         if ($localArch2) {
-            try {
-                Expand-MiniArchive -archivePath $localArch2 -miniDir $miniDir -baseDir $baseDir
-                return
-            } finally {
-                Remove-Item $localArch2 -Force -ErrorAction SilentlyContinue
-            }
+            Expand-MiniArchive -archivePath $localArch2 -miniDir $miniDir -baseDir $baseDir
+            return
         }
-        throw "Van chua thay file qemu-uefi-mini.7z trong $baseDir hoac $dlFolder."
-    }
-
-    try {
-        Expand-MiniArchive -archivePath $archivePath -miniDir $miniDir -baseDir $baseDir
-    } finally {
-        Remove-Item $archivePath -Force -ErrorAction SilentlyContinue
+        throw "Khong tim thay tep qemu-uefi-mini.7z hop le trong $baseDir hoac $dlFolder."
     }
 }
 
@@ -312,7 +355,7 @@ try {
         Write-Host "  [INFO] Khong doc duoc trang thai Secure Boot." -ForegroundColor Gray
     }
 
-    # === PHẦN 3: KIỂM TRA FILE THẬT TRÊN PHÂN VÙNG EFI & QUÉT FILE ISO/VHD TRONG MENU.LST ===
+    # === PHẦN 3: KIỂM TRA FILE THẬT TRÊN PHÂN VÙNG EFI & QUÉT FILE ISO/WIM/VHD TRONG MENU.LST ===
     Write-Host "`n[3/4] Kiem tra file that tren phan vung EFI & duong dan trong menu.lst..." -ForegroundColor Yellow
     $BaseDir = "C:\Grub4EFI_QEMU"
     $MiniDir = Join-Path $BaseDir "qemu-uefi-mini"
@@ -347,9 +390,9 @@ try {
             Write-Host "  -------------------------------------------" -ForegroundColor DarkCyan
 
             $allDrives = @([System.IO.DriveInfo]::GetDrives() | Where-Object { $_.IsReady } | ForEach-Object { $_.Name.TrimEnd('\') })
-            $matches = [regex]::Matches($menuContent, "find\s+--set-root\s+([^\r\n]+)")
+            $matches = [regex]::Matches($menuContent, "find\s+--set-root(?:\s+--\S+)*\s+([^\r\n]+)")
             foreach ($mt in $matches) {
-                $relPath = $mt.Groups[1].Value.Trim()
+                $relPath = $mt.Groups[1].Value.Trim().Trim('"')
                 $winRel  = $relPath -replace '/', '\'
                 $foundAt = @()
                 foreach ($drv in $allDrives) {
@@ -379,17 +422,24 @@ try {
     $qemuExe = Find-QemuBinary $MiniDir
 
     if (-not $qemuExe) {
-        Install-MiniQemuPortable -baseDir $BaseDir -miniDir $MiniDir
-        $qemuExe = Find-QemuBinary $MiniDir
-        if (-not $qemuExe) { throw "Khong tim thay qemu-system-x86_64.exe sau khi giai nen goi Mini!" }
+        try {
+            Install-MiniQemuPortable -baseDir $BaseDir -miniDir $MiniDir
+            $qemuExe = Find-QemuBinary $MiniDir
+        } catch {
+            Write-Host "  [INFO] $($_.Exception.Message)" -ForegroundColor Yellow
+            if ($grubGuid) {
+                Write-Host "`n[GOI Y] Cau hinh EFI da [PASS]. Ban co the test AN TOAN 1 LAN tren may that bang lenh:" -ForegroundColor Cyan
+                Write-Host "  bcdedit /set {fwbootmgr} bootsequence $grubGuid" -ForegroundColor White
+            }
+            return
+        }
     }
 
+    if (-not $qemuExe) { throw "Khong tim thay qemu-system-x86_64.exe va firmware UEFI sau khi giai nen!" }
     $ovmfPath = Find-OvmfFirmware $qemuExe
-    if (-not $ovmfPath) { throw "Khong tim thay firmware UEFI (edk2-x86_64-code.fd / OVMF.fd) trong thu muc QEMU!" }
 
     Write-Host "  [OK] Su dung QEMU: $qemuExe" -ForegroundColor Green
     Write-Host "  [DANG MO QEMU] Hien thi chinh xac giao dien Grub4EFI & menu.lst that cua may ban..." -ForegroundColor Magenta
-    Write-Host "  (Luu y: Trong may ao QEMU chi co phan vung EFI ao de kiem tra giao dien/cu phap menu, khong gan o cung Windows that de tranh ghi trung)" -ForegroundColor Gray
 
     $qemuArgs = @(
         "-name", "`"Test Ket Qua Grub4EFI That (QEMU UEFI)`"",
