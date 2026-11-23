@@ -175,27 +175,49 @@ function Get-SevenZipTool([string]$workDir) {
     return $zr
 }
 
-function Install-MiniQemuPortable([string]$baseDir, [string]$miniDir) {
-    $miniUrl = "https://github.com/trongnguyen2022/Menu_Boot_Windows_Manager/releases/download/qemu-mini/qemu-uefi-mini.7z"
-    $archivePath = Join-Path $baseDir "qemu-uefi-mini.7z"
+function Resolve-MiniReleaseAsset {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $headers = @{ "User-Agent" = "Grub4EFI-Boot-Studio" }
+    try {
+        $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/trongnguyen2022/Menu_Boot_Windows_Manager/releases?per_page=15" -Headers $headers
+        foreach ($r in @($rels)) {
+            foreach ($a in @($r.assets)) {
+                if ($a.name -match "\.(7z|zip)$" -and ($a.name -match "qemu|mini" -or $r.tag_name -match "qemu|mini")) {
+                    return @{ Url = $a.browser_download_url; Name = $a.name; Tag = $r.tag_name }
+                }
+            }
+        }
+    } catch {
+        # Fallback về URL trực tiếp nếu API bị giới hạn tạm thời
+    }
+    return @{
+        Url  = "https://github.com/trongnguyen2022/Menu_Boot_Windows_Manager/releases/download/qemu-mini/qemu-uefi-mini.7z"
+        Name = "qemu-uefi-mini.7z"
+        Tag  = "qemu-mini"
+    }
+}
 
-    Write-Host "  [DANG TAI] Dang tai goi QEMU UEFI Mini Portable qua curl.exe..." -ForegroundColor Yellow
-    & curl.exe -fL --progress-bar "$miniUrl" -o "$archivePath"
+function Install-MiniQemuPortable([string]$baseDir, [string]$miniDir) {
+    $assetInfo = Resolve-MiniReleaseAsset
+    $archivePath = Join-Path $baseDir $assetInfo.Name
+
+    Write-Host "  [DANG TAI] Dang tai $($assetInfo.Name) (tag: $($assetInfo.Tag)) qua curl.exe..." -ForegroundColor Yellow
+    $dlErr = (& curl.exe -fL --progress-bar "$($assetInfo.Url)" -o "$archivePath" 2>&1 | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $archivePath) -or ((Get-Item $archivePath).Length -lt 1MB)) {
         if (Test-Path $archivePath) { Remove-Item $archivePath -Force -ErrorAction SilentlyContinue }
-        throw "Khong tai duoc goi qemu-uefi-mini.7z tu GitHub Releases (tag: qemu-mini)."
+        $detail = if ($dlErr) { $dlErr } else { "curl exit code=$LASTEXITCODE (kiem tra Release 'qemu-mini' va file qemu-uefi-mini.7z tren GitHub)" }
+        throw $detail
     }
 
     try {
         [System.IO.Directory]::CreateDirectory($miniDir) | Out-Null
         $sevenZip = Get-SevenZipTool $baseDir
-        Write-Host "  [DANG GIAI NEN] Dang giai nen QEMU UEFI Mini..." -ForegroundColor Cyan
+        Write-Host "  [DANG GIAI NEN] Dang giai nen $($assetInfo.Name)..." -ForegroundColor Cyan
         $zProc = Start-Process -FilePath $sevenZip -ArgumentList "x `"$archivePath`" `"-o$miniDir`" -y" -Wait -NoNewWindow -PassThru
         if ($zProc.ExitCode -ne 0) {
-            throw "Giai nen qemu-uefi-mini.7z that bai (Ma loi: $($zProc.ExitCode))."
+            throw "Giai nen $($assetInfo.Name) that bai (Ma loi: $($zProc.ExitCode))."
         }
 
-        # Nếu gói nén chứa 1 thư mục con bọc ngoài thì đưa file ra thẳng $miniDir
         $nestedExe = Get-ChildItem -Path $miniDir -Recurse -Filter "qemu-system-x86_64.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($nestedExe -and ((Split-Path $nestedExe.FullName -Parent) -ne $miniDir)) {
             $subRoot = Split-Path $nestedExe.FullName -Parent
